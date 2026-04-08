@@ -286,22 +286,14 @@
       jobSites = [];
     }
 
-    let activities = [];
-    try {
-      activities = await WTPData.getActivities();
-    } catch (e) {
-      // Fall back to hardcoded list if DB fetch fails
-      activities = WTPData.JOB_DESCRIPTIONS.map(n => ({ id: n, activity_name: n, kimai_activity_id: null }));
-    }
-
     ciJob.innerHTML = '<option value="" disabled selected>Select a job site…</option>' +
       jobSites.map(j =>
-        `<option value="${escHtml(j.name)}" data-kimai-id="${j.kimai_project_id || ''}">${escHtml(j.name)}</option>`
+        `<option value="${escHtml(j.name)}">${escHtml(j.name)}</option>`
       ).join('');
 
     ciActivity.innerHTML = '<option value="" disabled selected>Select an activity…</option>' +
-      activities.map(a =>
-        `<option value="${escHtml(a.activity_name)}" data-kimai-id="${a.kimai_activity_id || ''}">${escHtml(a.activity_name)}</option>`
+      WTPData.JOB_DESCRIPTIONS.map(a =>
+        `<option value="${escHtml(a)}">${escHtml(a)}</option>`
       ).join('');
 
     ciPaytype.innerHTML = '<option value="" disabled selected>Select pay type…</option>' +
@@ -332,20 +324,12 @@
     btn.disabled = true;
     btn.textContent = 'Starting…';
 
-    // Read Kimai IDs from data attributes (null if not mapped)
-    const selectedJobOpt      = ciJob.options[ciJob.selectedIndex];
-    const selectedActivityOpt = ciActivity.options[ciActivity.selectedIndex];
-    const kimaiProjectId      = parseInt(selectedJobOpt.dataset.kimaiId)      || null;
-    const kimaiActivityId     = parseInt(selectedActivityOpt.dataset.kimaiId) || null;
-
     try {
       const shift = await WTPData.clockIn(
-        userId,              // auth user UUID
+        userId,
         ciJob.value,
         ciActivity.value,
-        ciPaytype.value,
-        kimaiProjectId,
-        kimaiActivityId
+        ciPaytype.value
       );
       activeShift = shift;
       closeClockinModal();

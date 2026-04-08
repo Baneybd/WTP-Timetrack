@@ -51,11 +51,11 @@ const WTPData = (() => {
 
   // ─── Job Sites ────────────────────────────────────────────────────────────
 
-  /** Fetch all job sites (includes kimai_project_id for clock-in Kimai mapping). */
+  /** Fetch all job sites. */
   async function getJobSites() {
     const { data, error } = await _db
       .from('job_sites')
-      .select('id, name, is_active, kimai_project_id')
+      .select('id, name, is_active')
       .order('name', { ascending: true });
     if (error) { console.error('WTPData.getJobSites:', error.message); return []; }
     return data || [];
@@ -81,56 +81,28 @@ const WTPData = (() => {
     if (error) { console.error('WTPData.toggleJobSite:', error.message); throw error; }
   }
 
-  /** Update the Kimai project ID for a job site (manager only). */
-  async function updateJobSiteKimaiId(id, kimaiProjectId) {
-    const { error } = await _db
-      .from('job_sites')
-      .update({ kimai_project_id: kimaiProjectId ? parseInt(kimaiProjectId) : null })
-      .eq('id', id);
-    if (error) { console.error('WTPData.updateJobSiteKimaiId:', error.message); throw error; }
-  }
-
-  // ─── Activities ───────────────────────────────────────────────────────────
-
-  /** Fetch all activities from activity_kimai_map. */
-  async function getActivities() {
-    const { data, error } = await _db
-      .from('activity_kimai_map')
-      .select('id, activity_name, kimai_activity_id')
-      .order('activity_name', { ascending: true });
-    if (error) { console.error('WTPData.getActivities:', error.message); return []; }
-    return data || [];
-  }
-
-  /** Update the Kimai activity ID for an activity (manager only). */
-  async function updateActivityKimaiId(id, kimaiActivityId) {
-    const { error } = await _db
-      .from('activity_kimai_map')
-      .update({ kimai_activity_id: kimaiActivityId ? parseInt(kimaiActivityId) : null })
-      .eq('id', id);
-    if (error) { console.error('WTPData.updateActivityKimaiId:', error.message); throw error; }
-  }
-
   // ─── Kimai Config ─────────────────────────────────────────────────────────
 
-  /** Read current Kimai config (base_url only — token is server-side). */
+  /** Read current Kimai config (base_url, default IDs — token is server-side). */
   async function getKimaiConfig() {
     const { data } = await _db
       .from('kimai_config')
-      .select('base_url, updated_at')
+      .select('base_url, default_project_id, default_activity_id, updated_at')
       .maybeSingle();
     return data || null;
   }
 
-  /** Save Kimai base URL + token to the singleton config row (manager only). */
-  async function saveKimaiConfig(baseUrl, token) {
+  /** Save Kimai config (base URL, token, default project/activity IDs). */
+  async function saveKimaiConfig(baseUrl, token, defaultProjectId, defaultActivityId) {
     const { error } = await _db
       .from('kimai_config')
       .upsert({
-        id:         1,
-        base_url:   baseUrl.trim(),
-        token:      token.trim(),
-        updated_at: new Date().toISOString(),
+        id:                  1,
+        base_url:            baseUrl.trim(),
+        token:               token.trim(),
+        default_project_id:  defaultProjectId  || null,
+        default_activity_id: defaultActivityId || null,
+        updated_at:          new Date().toISOString(),
       });
     if (error) { console.error('WTPData.saveKimaiConfig:', error.message); throw error; }
   }
@@ -180,17 +152,16 @@ const WTPData = (() => {
   /**
    * Clock an employee in.
    * Writes an in_progress row to Supabase immediately, saves shift to localStorage
-   * for offline timer display, then attempts Kimai clock-in non-fatally.
+   * for offline timer display, then attempts Kimai clock-in non-fatally using the
+   * hardcoded default_project_id / default_activity_id from kimai_config.
    *
-   * @param {string} employeeId        — auth user UUID (session.user.id)
-   * @param {string} jobName           — selected job site name
-   * @param {string} activityName      — selected activity name
-   * @param {string} payType           — 'Regular' | 'Overtime' | 'Double Time' | 'Holiday'
-   * @param {number|null} kimaiProjectId  — Kimai project ID from job site data attribute
-   * @param {number|null} kimaiActivityId — Kimai activity ID from activity data attribute
+   * @param {string} employeeId  — auth user UUID (session.user.id)
+   * @param {string} jobName     — selected job site name (saved to Supabase only)
+   * @param {string} activityName — selected activity name (saved to Supabase only)
+   * @param {string} payType     — 'Regular' | 'Overtime' | 'Double Time' | 'Holiday'
    * @returns {object} shift — localStorage shift object
    */
-  async function clockIn(employeeId, jobName, activityName, payType, kimaiProjectId, kimaiActivityId) {
+  async function clockIn(employeeId, jobName, activityName, payType) {
     const now        = new Date();
     const clockInISO = now.toISOString();
 
@@ -222,7 +193,11 @@ const WTPData = (() => {
     };
     localStorage.setItem(CLOCK_STORAGE.activeShift, JSON.stringify(shift));
 
-    // 3. Attempt Kimai clock-in (non-blocking — failure does not break the shift)
+    // 3. Attempt Kimai clock-in using hardcoded default IDs (non-blocking)
+    const kimaiCfg = await getKimaiConfig();
+    const kimaiProjectId  = kimaiCfg?.default_project_id  || null;
+    const kimaiActivityId = kimaiCfg?.default_activity_id || null;
+
     if (kimaiProjectId || kimaiActivityId) {
       try {
         const begin =
@@ -560,9 +535,7 @@ const WTPData = (() => {
   // ─── Public API ───────────────────────────────────────────────────────────
   return {
     // Job sites
-    getJobSites, addJobSite, toggleJobSite, updateJobSiteKimaiId,
-    // Activities
-    getActivities, updateActivityKimaiId,
+    getJobSites, addJobSite, toggleJobSite,
     // Kimai config
     getKimaiConfig, saveKimaiConfig,
     // Employees

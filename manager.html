@@ -206,25 +206,19 @@
           <div class="kimai-status" id="kimai-status"></div>
         </div>
 
-        <!-- Job Site → Kimai Project ID mapping -->
+        <!-- WTP Default Project / Activity IDs -->
         <div class="kimai-panel__section">
-          <div class="kimai-panel__section-title">Job Site → Kimai Project ID</div>
+          <div class="kimai-panel__section-title">WTP Kimai Mapping</div>
           <p style="font-size:.8125rem; color:var(--muted); margin-bottom:.75rem;">
-            Enter the numeric Kimai project ID for each job site. Employees without a mapped ID will still clock in via Supabase only.
+            Create one project called <strong>WTP</strong> and one activity called <strong>Work</strong> in Kimai. Enter their numeric IDs here. You will never need to change these again.
           </p>
-          <div id="kimai-jobsite-map">
-            <p style="color:var(--muted); font-size:.875rem;">Loading…</p>
+          <div class="modal-row">
+            <label class="modal-label" for="kimai-default-project">WTP Project ID</label>
+            <input type="number" id="kimai-default-project" class="wtp-input" placeholder="Numeric project ID" min="1">
           </div>
-        </div>
-
-        <!-- Activity → Kimai Activity ID mapping -->
-        <div class="kimai-panel__section">
-          <div class="kimai-panel__section-title">Activity → Kimai Activity ID</div>
-          <p style="font-size:.8125rem; color:var(--muted); margin-bottom:.75rem;">
-            Enter the numeric Kimai activity ID for each activity type.
-          </p>
-          <div id="kimai-activity-map">
-            <p style="color:var(--muted); font-size:.875rem;">Loading…</p>
+          <div class="modal-row">
+            <label class="modal-label" for="kimai-default-activity">WTP Activity ID</label>
+            <input type="number" id="kimai-default-activity" class="wtp-input" placeholder="Numeric activity ID" min="1">
           </div>
         </div>
 
@@ -1015,7 +1009,7 @@
       await WTPData.addJobSite(name);
       closeJobsiteModal();
       await renderJobSiteList();
-      await renderKimaiJobSiteMap(); // refresh mapping table too
+      // (no Kimai mapping table to refresh)
       showToast(`"${name}" added to job sites.`);
     } catch (err) {
       errEl.textContent = err.message?.includes('unique') ? 'A job site with that name already exists.' : (err.message || 'Failed to add job site.');
@@ -1039,108 +1033,25 @@
   // ── Kimai Settings ────────────────────────────────────────────────────────
 
   async function renderKimaiSettings() {
-    // Show saved URL if config exists
     const config = await WTPData.getKimaiConfig();
     const savedUrlEl = document.getElementById('kimai-saved-url');
     if (config) {
       savedUrlEl.textContent = `Current: ${config.base_url} (last updated ${new Date(config.updated_at).toLocaleDateString()})`;
       document.getElementById('kimai-base-url').value = config.base_url;
+      if (config.default_project_id)  document.getElementById('kimai-default-project').value  = config.default_project_id;
+      if (config.default_activity_id) document.getElementById('kimai-default-activity').value = config.default_activity_id;
     } else {
       savedUrlEl.textContent = 'Not configured yet.';
     }
-
-    await Promise.all([renderKimaiJobSiteMap(), renderKimaiActivityMap()]);
   }
-
-  async function renderKimaiJobSiteMap() {
-    const container = document.getElementById('kimai-jobsite-map');
-    const sites = await WTPData.getJobSites();
-    if (sites.length === 0) {
-      container.innerHTML = '<p style="color:var(--muted);font-size:.875rem;">No job sites found.</p>';
-      return;
-    }
-    container.innerHTML = sites.map(j => `
-      <div class="kimai-row">
-        <span class="kimai-row__label" title="${esc(j.name)}">${esc(j.name)}</span>
-        <input
-          type="number"
-          class="kimai-row__input"
-          id="kjob-${esc(j.id)}"
-          value="${j.kimai_project_id || ''}"
-          placeholder="Project ID"
-          min="1"
-        >
-        <button
-          class="kimai-row__save"
-          onclick="saveJobSiteKimaiId('${esc(j.id)}')"
-          aria-label="Save Kimai project ID for ${esc(j.name)}"
-        >Save</button>
-      </div>`).join('');
-  }
-
-  async function renderKimaiActivityMap() {
-    const container = document.getElementById('kimai-activity-map');
-    const activities = await WTPData.getActivities();
-    if (activities.length === 0) {
-      container.innerHTML = '<p style="color:var(--muted);font-size:.875rem;">No activities found.</p>';
-      return;
-    }
-    container.innerHTML = activities.map(a => `
-      <div class="kimai-row">
-        <span class="kimai-row__label" title="${esc(a.activity_name)}">${esc(a.activity_name)}</span>
-        <input
-          type="number"
-          class="kimai-row__input"
-          id="kact-${esc(a.id)}"
-          value="${a.kimai_activity_id || ''}"
-          placeholder="Activity ID"
-          min="1"
-        >
-        <button
-          class="kimai-row__save"
-          onclick="saveActivityKimaiId('${esc(a.id)}')"
-          aria-label="Save Kimai activity ID for ${esc(a.activity_name)}"
-        >Save</button>
-      </div>`).join('');
-  }
-
-  window.saveJobSiteKimaiId = async function (id) {
-    const input = document.getElementById('kjob-' + id);
-    const btn   = input.nextElementSibling;
-    btn.disabled = true;
-    btn.textContent = '…';
-    try {
-      await WTPData.updateJobSiteKimaiId(id, input.value || null);
-      showToast('Kimai project ID saved.');
-    } catch (err) {
-      showToast('Failed to save: ' + err.message, true);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Save';
-    }
-  };
-
-  window.saveActivityKimaiId = async function (id) {
-    const input = document.getElementById('kact-' + id);
-    const btn   = input.nextElementSibling;
-    btn.disabled = true;
-    btn.textContent = '…';
-    try {
-      await WTPData.updateActivityKimaiId(id, input.value || null);
-      showToast('Kimai activity ID saved.');
-    } catch (err) {
-      showToast('Failed to save: ' + err.message, true);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Save';
-    }
-  };
 
   document.getElementById('kimai-save-btn').addEventListener('click', async () => {
-    const baseUrl  = document.getElementById('kimai-base-url').value.trim();
-    const token    = document.getElementById('kimai-token').value.trim();
-    const statusEl = document.getElementById('kimai-status');
-    const btn      = document.getElementById('kimai-save-btn');
+    const baseUrl         = document.getElementById('kimai-base-url').value.trim();
+    const token           = document.getElementById('kimai-token').value.trim();
+    const defaultProject  = parseInt(document.getElementById('kimai-default-project').value)  || null;
+    const defaultActivity = parseInt(document.getElementById('kimai-default-activity').value) || null;
+    const statusEl        = document.getElementById('kimai-status');
+    const btn             = document.getElementById('kimai-save-btn');
 
     if (!baseUrl) { showStatus('Base URL is required.', true); return; }
     if (!token)   { showStatus('API token is required.', true); return; }
@@ -1148,10 +1059,10 @@
     btn.disabled = true;
     btn.textContent = 'Saving…';
     try {
-      await WTPData.saveKimaiConfig(baseUrl, token);
+      await WTPData.saveKimaiConfig(baseUrl, token, defaultProject, defaultActivity);
       showStatus('Kimai configuration saved.', false);
       document.getElementById('kimai-saved-url').textContent = `Current: ${baseUrl}`;
-      document.getElementById('kimai-token').value = ''; // clear token field after save
+      document.getElementById('kimai-token').value = '';
     } catch (err) {
       showStatus('Failed to save: ' + err.message, true);
     } finally {

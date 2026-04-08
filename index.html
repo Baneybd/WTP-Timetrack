@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WTP Time Tracker — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="login-layout">
+  <div class="login-card">
+
+    <!-- Branding -->
+    <div class="login-brand">
+      <img
+        src="assets/logo-colored-blue-bg.webp"
+        alt="Willow Tree Properties"
+        class="login-brand__logo"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+      >
+      <!-- Fallback if logo file not yet present -->
+      <div class="login-brand__logo-fallback" style="display:none;" aria-hidden="true">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22V12"/>
+          <path d="M12 12C12 7 8 4 3 3c0 5 3 9 9 9z"/>
+          <path d="M12 12c0-5 4-8 9-9 0 5-3 9-9 9z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="login-brand__name">Willow Tree Properties</div>
+        <div class="login-brand__sub">Time Tracker</div>
+      </div>
+    </div>
+
+    <!-- Error banner -->
+    <div class="login-error" id="login-error" role="alert">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span id="login-error-msg"></span>
+    </div>
+
+    <!-- Login form -->
+    <form id="login-form" novalidate>
+
+      <div class="field-group">
+        <label class="form-label" for="login-email">Email</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+          </svg>
+          <input
+            id="login-email"
+            type="email"
+            class="wtp-input"
+            placeholder="you@company.com"
+            autocomplete="email"
+            inputmode="email"
+            required
+          >
+        </div>
+      </div>
+
+      <div class="field-group mb-card">
+        <label class="form-label" for="login-password">Password</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          <input
+            id="login-password"
+            type="password"
+            class="wtp-input"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          >
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary" id="login-btn" aria-label="Sign in">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
+        Sign In
+      </button>
+
+    </form>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const form     = document.getElementById('login-form');
+  const emailEl  = document.getElementById('login-email');
+  const passEl   = document.getElementById('login-password');
+  const btn      = document.getElementById('login-btn');
+  const errorEl  = document.getElementById('login-error');
+  const errorMsg = document.getElementById('login-error-msg');
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorEl.classList.add('visible');
+  }
+  function clearError() {
+    errorEl.classList.remove('visible');
+  }
+
+  function redirectByRole(role) {
+    window.location.href = role === 'manager' ? 'manager.html' : 'employee.html';
+  }
+
+  // Auto-redirect if already signed in
+  (async () => {
+    const session = await WTPAuth.getSession();
+    if (session) redirectByRole(session.employee.role);
+  })();
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    clearError();
+
+    const email    = emailEl.value.trim();
+    const password = passEl.value;
+
+    if (!email)    { showError('Please enter your email address.'); return; }
+    if (!password) { showError('Please enter your password.'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      Signing in…`;
+
+    try {
+      const { employee } = await WTPAuth.signIn(email, password);
+      redirectByRole(employee.role);
+    } catch (err) {
+      const msg = err.message?.includes('Invalid login credentials')
+        ? 'Incorrect email or password. Please try again.'
+        : (err.message || 'Sign in failed. Please try again.');
+      showError(msg);
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
+        Sign In`;
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

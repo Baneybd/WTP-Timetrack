@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WTP Manager Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .stat-label { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
+    .stat-value { font-size: 2.1rem; font-weight: 800; color: var(--text); line-height: 1; letter-spacing: -0.04em; padding-right: 3.25rem; font-variant-numeric: tabular-nums; margin-top: 0.25rem; }
+    .stat-sub   { font-size: 0.75rem; color: var(--muted); font-weight: 500; margin-top: 0.25rem; }
+    .del-preview { background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius); padding: 0.875rem 1rem; font-size: 0.875rem; margin: 0.875rem 0; line-height: 1.6; }
+    .del-preview strong { color: var(--text); }
+    .grid-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.75rem; }
+    @media (max-width: 440px) { .grid-stats { grid-template-columns: 1fr; } }
+    .mgmt-header-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+    /* Kimai Settings panel */
+    .kimai-panel { padding: 0; }
+    .kimai-panel__section { padding: 1rem 1.375rem; border-bottom: 1px solid var(--border); }
+    .kimai-panel__section:last-child { border-bottom: none; }
+    .kimai-panel__section-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: .875rem; }
+    .kimai-row { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: center; margin-bottom: .5rem; font-size: .875rem; }
+    .kimai-row__label { color: var(--text); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kimai-row__input { width: 90px; padding: .3rem .5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: .8125rem; font-family: inherit; background: var(--surface); color: var(--text); }
+    .kimai-row__input:focus { outline: 2px solid var(--wtp-purple-400); outline-offset: 1px; }
+    .kimai-row__save { padding: .3rem .625rem; font-size: .75rem; font-weight: 600; border: none; border-radius: var(--radius-sm); background: var(--wtp-purple-600); color: #fff; cursor: pointer; transition: opacity var(--transition-fast); }
+    .kimai-row__save:hover { opacity: .85; }
+    .kimai-row__save:disabled { opacity: .5; cursor: not-allowed; }
+    .kimai-status { font-size: .8125rem; padding: .5rem .75rem; border-radius: var(--radius-sm); margin-top: .5rem; display: none; }
+    .kimai-status--ok  { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .kimai-status--err { background: var(--red-light); color: var(--red-base); border: 1px solid #fca5a5; }
+    .kimai-toggle-btn { display: inline-flex; align-items: center; gap: .375rem; font-size: .75rem; font-weight: 600; }
+    details.kimai-details > summary { list-style: none; cursor: pointer; }
+    details.kimai-details > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header class="site-header">
+  <div class="site-header__inner">
+    <a class="header-brand" href="#">
+      <img
+        src="assets/logo-colored.webp"
+        alt="Willow Tree Properties"
+        class="header-brand__logo"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+      >
+      <div class="header-brand__icon" style="display:none;" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e6dce9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22V12"/>
+          <path d="M12 12C12 7 8 4 3 3c0 5 3 9 9 9z"/>
+          <path d="M12 12c0-5 4-8 9-9 0 5-3 9-9 9z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="header-brand__name">Willow Tree Properties</div>
+        <div class="header-brand__sub">Manager Dashboard</div>
+      </div>
+    </a>
+    <div class="header-actions">
+      <span class="header-user" id="header-name" aria-live="polite"></span>
+      <button class="export-btn" id="export-btn" aria-label="Export CSV">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export CSV
+      </button>
+      <button class="header-link" id="signout-btn" aria-label="Sign out">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sign Out
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<main class="mgr-layout" id="main-content" style="display:none;">
+
+  <!-- ── Stats ── -->
+  <div class="mb-section">
+    <p class="section-title">This Week's Overview</p>
+    <div class="grid-stats">
+
+      <div class="stat-card">
+        <div class="stat-card__icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div class="stat-label">Total Hours</div>
+        <div class="stat-value" id="stat-hours">—</div>
+        <div class="stat-sub">Mon – Sun</div>
+      </div>
+
+      <div class="stat-card info">
+        <div class="stat-card__icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </div>
+        <div class="stat-label">Entries Logged</div>
+        <div class="stat-value" id="stat-entries">—</div>
+        <div class="stat-sub">All time</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Currently Clocked In Panel ── -->
+  <div class="mgmt-section mb-section">
+    <div class="mgmt-section__header">
+      <span class="mgmt-section__title">Currently Clocked In</span>
+      <div class="mgmt-header-actions">
+        <span class="shifts-panel__last-updated" id="shifts-last-updated"></span>
+        <button class="mgmt-add-btn" id="refresh-shifts-btn" style="background:linear-gradient(135deg,var(--wtp-blue-600),#446070);" aria-label="Refresh active shifts">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+    <div class="shifts-panel" id="active-shifts-panel">
+      <p class="shifts-panel__empty">Loading…</p>
+    </div>
+  </div>
+
+  <!-- ── Employee Management ── -->
+  <div class="mgmt-section mb-section">
+    <div class="mgmt-section__header">
+      <span class="mgmt-section__title">Employees</span>
+      <button class="mgmt-add-btn" id="add-employee-btn" aria-label="Add new employee">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Add Employee
+      </button>
+    </div>
+    <div class="mgmt-list" id="employees-list">
+      <p style="padding:1rem 1.375rem; color:var(--muted); font-size:.875rem;">Loading…</p>
+    </div>
+  </div>
+
+  <!-- ── Job Site Management ── -->
+  <div class="mgmt-section mb-section">
+    <div class="mgmt-section__header">
+      <span class="mgmt-section__title">Job Sites</span>
+      <button class="mgmt-add-btn" id="add-jobsite-btn" aria-label="Add new job site">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Add Job Site
+      </button>
+    </div>
+    <div class="mgmt-list" id="jobsites-list">
+      <p style="padding:1rem 1.375rem; color:var(--muted); font-size:.875rem;">Loading…</p>
+    </div>
+  </div>
+
+  <!-- ── Kimai Integration Settings ── -->
+  <div class="mgmt-section mb-section">
+    <details class="kimai-details">
+      <summary>
+        <div class="mgmt-section__header" style="cursor:pointer; user-select:none;">
+          <span class="mgmt-section__title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:.25rem;" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Kimai Integration
+          </span>
+          <button class="mgmt-add-btn kimai-toggle-btn" type="button" style="background:linear-gradient(135deg,var(--wtp-purple-500),var(--wtp-purple-600)); pointer-events:none;" aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+            Configure
+          </button>
+        </div>
+      </summary>
+
+      <div class="kimai-panel">
+
+        <!-- Connection settings -->
+        <div class="kimai-panel__section">
+          <div class="kimai-panel__section-title">Connection</div>
+          <p id="kimai-saved-url" style="font-size:.8125rem; color:var(--muted); margin-bottom:.75rem;"></p>
+
+          <div class="modal-row">
+            <label class="modal-label" for="kimai-base-url">Kimai Base URL</label>
+            <input type="url" id="kimai-base-url" class="wtp-input" placeholder="https://kimai.example.com">
+          </div>
+          <div class="modal-row">
+            <label class="modal-label" for="kimai-token">Kimai Admin Token</label>
+            <input type="password" id="kimai-token" class="wtp-input" placeholder="Enter API token (stored securely server-side)">
+          </div>
+          <div style="display:flex; gap:.5rem; margin-top:.25rem;">
+            <button class="btn-secondary" id="kimai-save-btn">Save Config</button>
+            <button class="btn-secondary" id="kimai-test-btn">Test Connection</button>
+          </div>
+          <div class="kimai-status" id="kimai-status"></div>
+        </div>
+
+        <!-- Job Site → Kimai Project ID mapping -->
+        <div class="kimai-panel__section">
+          <div class="kimai-panel__section-title">Job Site → Kimai Project ID</div>
+          <p style="font-size:.8125rem; color:var(--muted); margin-bottom:.75rem;">
+            Enter the numeric Kimai project ID for each job site. Employees without a mapped ID will still clock in via Supabase only.
+          </p>
+          <div id="kimai-jobsite-map">
+            <p style="color:var(--muted); font-size:.875rem;">Loading…</p>
+          </div>
+        </div>
+
+        <!-- Activity → Kimai Activity ID mapping -->
+        <div class="kimai-panel__section">
+          <div class="kimai-panel__section-title">Activity → Kimai Activity ID</div>
+          <p style="font-size:.8125rem; color:var(--muted); margin-bottom:.75rem;">
+            Enter the numeric Kimai activity ID for each activity type.
+          </p>
+          <div id="kimai-activity-map">
+            <p style="color:var(--muted); font-size:.875rem;">Loading…</p>
+          </div>
+        </div>
+
+      </div>
+    </details>
+  </div>
+
+  <!-- ── Timesheets Table ── -->
+  <div>
+    <p class="section-title">Timesheet Entries</p>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label class="filter-label" for="f-start">From Date</label>
+        <input type="date" id="f-start" class="filter-input">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label" for="f-end">To Date</label>
+        <input type="date" id="f-end" class="filter-input">
+      </div>
+      <div class="filter-group filter-group--wide">
+        <label class="filter-label" for="f-emp">Employee Name</label>
+        <input type="text" id="f-emp" class="filter-input" placeholder="Search by name…">
+      </div>
+      <div class="filter-actions">
+        <button class="btn-secondary" id="filter-btn">Apply</button>
+        <button class="btn-secondary" id="clear-btn">Clear</button>
+      </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="table-card">
+      <div class="table-card__header">
+        <span class="section-heading">Timesheet Entries</span>
+        <span id="row-count" class="count-badge">0 entries</span>
+      </div>
+      <div class="table-wrapper">
+        <table class="wtp-table" id="data-table">
+          <thead>
+            <tr>
+              <th data-col="employeeName">Employee <i class="sort-icon">↕</i></th>
+              <th data-col="date">Date <i class="sort-icon">↕</i></th>
+              <th data-col="jobName">Job Name <i class="sort-icon">↕</i></th>
+              <th data-col="jobDescription">Activity <i class="sort-icon">↕</i></th>
+              <th data-col="payType">Pay Type <i class="sort-icon">↕</i></th>
+              <th data-col="hours">Hours <i class="sort-icon">↕</i></th>
+              <th class="no-sort">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="7" class="no-results">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Edit Timesheet Modal ─────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="edit-title">Edit Time Entry</h2>
+      <button class="modal-close" id="edit-close" aria-label="Close modal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <form id="edit-form" novalidate>
+      <input type="hidden" id="edit-id">
+      <div class="modal-row">
+        <label class="modal-label" for="edit-emp">Employee Name</label>
+        <input type="text" id="edit-emp" class="wtp-input" readonly style="opacity:.6; cursor:not-allowed;" title="Employee name is stored in the profile and cannot be edited here.">
+      </div>
+      <div class="modal-row">
+        <label class="modal-label" for="edit-date">Date</label>
+        <input type="date" id="edit-date" class="wtp-input" required>
+      </div>
+      <div class="modal-row">
+        <label class="modal-label" for="edit-job">Job Name</label>
+        <select id="edit-job" class="wtp-select" required>
+          <option value="" disabled>Select a job…</option>
+        </select>
+      </div>
+      <div class="modal-row">
+        <label class="modal-label" for="edit-desc">Activity</label>
+        <select id="edit-desc" class="wtp-select" required>
+          <option value="" disabled>Select an activity…</option>
+        </select>
+      </div>
+      <div class="modal-row">
+        <label class="modal-label" for="edit-pay">Pay Type</label>
+        <select id="edit-pay" class="wtp-select" required>
+          <option value="" disabled>Select pay type…</option>
+          <option>Regular</option>
+          <option>Overtime</option>
+          <option>Double Time</option>
+          <option>Holiday</option>
+        </select>
+      </div>
+      <div class="modal-row">
+        <label class="modal-label" for="edit-hours">Hours</label>
+        <input type="number" id="edit-hours" class="wtp-input" min="0.25" max="24" step="0.25" required>
+      </div>
+      <p id="edit-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="edit-cancel">Cancel</button>
+        <button type="submit" class="btn-save" id="edit-save">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Delete Timesheet Modal ──────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="delete-modal" role="dialog" aria-modal="true">
+  <div class="modal-box modal-box--danger" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title modal-title--danger">Delete Entry?</h2>
+      <button class="modal-close" id="del-close" aria-label="Close modal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <p class="modal-danger-sub">This action cannot be undone.</p>
+    <div class="del-preview" id="del-preview"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" id="del-cancel">Cancel</button>
+      <button type="button" class="btn-del-confirm" id="del-confirm">Delete Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add Employee Modal ──────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="emp-modal" role="dialog" aria-modal="true" aria-labelledby="emp-modal-title">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="emp-modal-title">Add Employee</h2>
+      <button class="modal-close" id="emp-modal-close" aria-label="Close modal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <form id="emp-form" novalidate>
+      <input type="hidden" id="emp-modal-mode"> <!-- 'add' or 'edit' -->
+      <input type="hidden" id="emp-modal-id">
+
+      <div class="modal-row-grid">
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="emp-fullname">Full Name</label>
+          <input type="text" id="emp-fullname" class="wtp-input" placeholder="Jane Smith" required>
+        </div>
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="emp-role">Role</label>
+          <select id="emp-role" class="wtp-select" required>
+            <option value="employee" selected>Employee</option>
+            <option value="manager">Manager</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="emp-add-fields">
+        <div class="modal-row-grid" style="margin-top:1rem;">
+          <div class="modal-row" style="margin-bottom:0;">
+            <label class="modal-label" for="emp-email">Email</label>
+            <input type="email" id="emp-email" class="wtp-input" placeholder="jane@company.com">
+          </div>
+          <div class="modal-row" style="margin-bottom:0;">
+            <label class="modal-label" for="emp-password">Password (min 8 chars)</label>
+            <input type="password" id="emp-password" class="wtp-input" placeholder="••••••••" minlength="8">
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:1rem;">
+        <div class="modal-label" style="margin-bottom:.5rem;">Pay Rates ($/hr)</div>
+        <div class="modal-row-grid">
+          <div class="modal-row" style="margin-bottom:0;">
+            <label class="modal-label" for="emp-rate-reg">Regular</label>
+            <input type="number" id="emp-rate-reg" class="wtp-input" value="25" min="0" step="0.01">
+          </div>
+          <div class="modal-row" style="margin-bottom:0;">
+            <label class="modal-label" for="emp-rate-ot">Overtime</label>
+            <input type="number" id="emp-rate-ot" class="wtp-input" value="37.50" min="0" step="0.01">
+          </div>
+          <div class="modal-row" style="margin-bottom:0; margin-top:.75rem;">
+            <label class="modal-label" for="emp-rate-dt">Double Time</label>
+            <input type="number" id="emp-rate-dt" class="wtp-input" value="50" min="0" step="0.01">
+          </div>
+          <div class="modal-row" style="margin-bottom:0; margin-top:.75rem;">
+            <label class="modal-label" for="emp-rate-hol">Holiday</label>
+            <input type="number" id="emp-rate-hol" class="wtp-input" value="50" min="0" step="0.01">
+          </div>
+        </div>
+      </div>
+
+      <p id="emp-error" style="display:none; color:var(--red-base); font-size:.8125rem; font-weight:500; margin-top:.75rem; padding:.5rem .75rem; background:var(--red-light); border-radius:var(--radius-sm); border-left:3px solid var(--red-base);"></p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="emp-cancel">Cancel</button>
+        <button type="submit" class="btn-save" id="emp-save">Add Employee</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Add Job Site Modal ──────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="jobsite-modal" role="dialog" aria-modal="true" aria-labelledby="jobsite-modal-title">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="jobsite-modal-title">Add Job Site</h2>
+      <button class="modal-close" id="jobsite-close" aria-label="Close modal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <form id="jobsite-form" novalidate>
+      <div class="modal-row">
+        <label class="modal-label" for="jobsite-name">Job Site Name</label>
+        <input type="text" id="jobsite-name" class="wtp-input" placeholder="e.g. River Ridge" required>
+      </div>
+      <p id="jobsite-error" style="display:none; color:var(--red-base); font-size:.8125rem; font-weight:500; margin-bottom:.5rem; padding:.5rem .75rem; background:var(--red-light); border-radius:var(--radius-sm); border-left:3px solid var(--red-base);"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="jobsite-cancel">Cancel</button>
+        <button type="submit" class="btn-save" id="jobsite-save">Add Job Site</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ── Scripts ────────────────────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
+<script src="kimai-config.js"></script>
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ── State ──
+  let currentEntries  = [];
+  let pendingDeleteId = null;
+  let sortCol         = 'date';
+  let sortDir         = 'desc';
+  let cachedJobSites  = [];
+  let cachedEmployees = [];
+  let shiftsRefreshInterval = null;
+
+  // ── DOM refs ──
+  const mainContent = document.getElementById('main-content');
+  const headerName  = document.getElementById('header-name');
+  const tableBody   = document.getElementById('table-body');
+  const rowCount    = document.getElementById('row-count');
+  const fStart      = document.getElementById('f-start');
+  const fEnd        = document.getElementById('f-end');
+  const fEmp        = document.getElementById('f-emp');
+  const filterBtn   = document.getElementById('filter-btn');
+  const clearBtn    = document.getElementById('clear-btn');
+  const exportBtn   = document.getElementById('export-btn');
+  const toastEl     = document.getElementById('toast');
+  const editModal   = document.getElementById('edit-modal');
+  const editForm    = document.getElementById('edit-form');
+  const editId      = document.getElementById('edit-id');
+  const editEmp     = document.getElementById('edit-emp');
+  const editDate    = document.getElementById('edit-date');
+  const editJob     = document.getElementById('edit-job');
+  const editDesc    = document.getElementById('edit-desc');
+  const editPay     = document.getElementById('edit-pay');
+  const editHours   = document.getElementById('edit-hours');
+  const editError   = document.getElementById('edit-error');
+  const deleteModal = document.getElementById('delete-modal');
+  const delPreview  = document.getElementById('del-preview');
+  const empModal    = document.getElementById('emp-modal');
+  const empForm     = document.getElementById('emp-form');
+  const jobsiteModal  = document.getElementById('jobsite-modal');
+  const jobsiteForm   = document.getElementById('jobsite-form');
+
+  // ── Utilities ──
+
+  let toastTimer;
+  function showToast(msg, isError = false) {
+    const icon = isError
+      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+    toastEl.innerHTML = icon + '<span>' + esc(msg) + '</span>';
+    toastEl.className = 'toast' + (isError ? ' error' : '');
+    void toastEl.offsetWidth;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3200);
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function badge(pt) {
+    const map = { 'Regular': 'Regular', 'Overtime': 'Overtime', 'Double Time': 'DoubleTtime', 'Holiday': 'Holiday' };
+    return `<span class="badge badge-${map[pt] || 'Regular'}">${esc(pt)}</span>`;
+  }
+
+  function fmtElapsed(clockInStr) {
+    const secs = Math.floor((Date.now() - new Date(clockInStr)) / 1000);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+  }
+
+  function fmtTime(isoStr) {
+    return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ── Table sort ──
+
+  function sortEntries(arr) {
+    return arr.slice().sort((a, b) => {
+      let va = a[sortCol], vb = b[sortCol];
+      if (sortCol === 'hours') { va = +va; vb = +vb; }
+      else { va = String(va).toLowerCase(); vb = String(vb).toLowerCase(); }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  // ── Render table ──
+
+  function renderTable() {
+    const sorted = sortEntries(currentEntries);
+
+    document.querySelectorAll('.wtp-table thead th[data-col]').forEach(th => {
+      th.classList.remove('sort-asc', 'sort-desc');
+      const icon = th.querySelector('.sort-icon');
+      if (th.dataset.col === sortCol) {
+        th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+        if (icon) icon.textContent = sortDir === 'asc' ? '↑' : '↓';
+      } else {
+        if (icon) icon.textContent = '↕';
+      }
+    });
+
+    rowCount.textContent = sorted.length + (sorted.length === 1 ? ' entry' : ' entries');
+
+    if (sorted.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="7" class="no-results">No entries match your filters.</td></tr>`;
+      return;
+    }
+
+    tableBody.innerHTML = sorted.map(e => `
+      <tr>
+        <td class="td-name">${esc(e.employeeName || '—')}</td>
+        <td>${esc(e.date)}</td>
+        <td>${esc(e.jobName)}</td>
+        <td class="td-muted">${esc(e.jobDescription || '—')}</td>
+        <td>${badge(e.payType)}</td>
+        <td class="td-hours">${e.hours % 1 === 0 ? e.hours : e.hours.toFixed(2)}</td>
+        <td class="td-actions">
+          <button class="btn-icon btn-edit"   onclick="openEdit('${esc(e.id)}')"   aria-label="Edit entry">Edit</button>
+          <button class="btn-icon btn-delete" onclick="openDelete('${esc(e.id)}')">Delete</button>
+        </td>
+      </tr>`).join('');
+  }
+
+  // ── Analytics ──
+
+  async function renderAnalytics() {
+    const { weekHours, totalEntries } = await WTPData.getAnalytics();
+    document.getElementById('stat-hours').textContent   = weekHours % 1 === 0 ? weekHours : weekHours.toFixed(1);
+    document.getElementById('stat-entries').textContent = totalEntries;
+  }
+
+  // ── Active Shifts Panel ──
+
+  async function renderActiveShifts() {
+    const panel = document.getElementById('active-shifts-panel');
+    const lastUpdatedEl = document.getElementById('shifts-last-updated');
+
+    const shifts = await WTPData.getActiveShifts();
+    const now = new Date();
+    lastUpdatedEl.textContent = 'Updated ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (shifts.length === 0) {
+      panel.innerHTML = '<p class="shifts-panel__empty">No employees currently on the clock.</p>';
+      return;
+    }
+
+    panel.innerHTML = `<div class="shift-cards-grid">${
+      shifts.map(s => `
+        <div class="shift-card">
+          <div class="shift-card__name">${esc(s.employee_name)}</div>
+          <div class="shift-card__job">${esc(s.job_name)}</div>
+          <div class="shift-card__meta">
+            ${badge(s.pay_type)}
+            <span>${esc(s.job_description || '')}</span>
+            <span>since ${fmtTime(s.clock_in)}</span>
+          </div>
+          <div class="shift-card__elapsed" id="elapsed-${esc(s.id)}">${fmtElapsed(s.clock_in)}</div>
+        </div>`).join('')
+    }</div>`;
+
+    // Live elapsed update for all shift cards
+    const updateElapseds = () => {
+      shifts.forEach(s => {
+        const el = document.getElementById('elapsed-' + s.id);
+        if (el) el.textContent = fmtElapsed(s.clock_in);
+      });
+    };
+    if (window._shiftElapsedInterval) clearInterval(window._shiftElapsedInterval);
+    window._shiftElapsedInterval = setInterval(updateElapseds, 1000);
+  }
+
+  // ── Employee list ──
+
+  async function renderEmployeeList() {
+    const list = document.getElementById('employees-list');
+    cachedEmployees = await WTPData.getEmployees();
+
+    if (cachedEmployees.length === 0) {
+      list.innerHTML = '<p style="padding:1rem 1.375rem; color:var(--muted); font-size:.875rem;">No employees found.</p>';
+      return;
+    }
+
+    list.innerHTML = cachedEmployees.map(emp => `
+      <div class="mgmt-list-item ${emp.is_active ? '' : 'mgmt-list-item--inactive'}">
+        <div class="mgmt-list-item__info">
+          <div class="mgmt-list-item__name">${esc(emp.full_name)}
+            <span class="badge ${emp.role === 'manager' ? 'badge-Holiday' : 'badge-Regular'}" style="margin-left:.375rem; vertical-align:middle;">
+              ${esc(emp.role)}
+            </span>
+            ${!emp.is_active ? '<span style="font-size:.7rem; color:var(--muted); font-weight:600; margin-left:.25rem;">(inactive)</span>' : ''}
+          </div>
+          <div class="mgmt-list-item__meta">${esc(emp.email)} &bull; Reg $${parseFloat(emp.pay_rate_regular).toFixed(2)}/hr &bull; OT $${parseFloat(emp.pay_rate_overtime).toFixed(2)}/hr</div>
+        </div>
+        <div class="mgmt-list-item__actions">
+          <button class="btn-sm btn-sm-blue" onclick="openEditEmployee('${esc(emp.id)}')" aria-label="Edit ${esc(emp.full_name)}">Edit</button>
+          <button class="btn-sm ${emp.is_active ? 'btn-sm-danger' : 'btn-sm-success'}"
+            onclick="toggleEmployee('${esc(emp.id)}', ${!emp.is_active})"
+            aria-label="${emp.is_active ? 'Deactivate' : 'Reactivate'} ${esc(emp.full_name)}">
+            ${emp.is_active ? 'Deactivate' : 'Reactivate'}
+          </button>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── Job site list ──
+
+  async function renderJobSiteList() {
+    const list = document.getElementById('jobsites-list');
+    cachedJobSites = await WTPData.getJobSites();
+
+    if (cachedJobSites.length === 0) {
+      list.innerHTML = '<p style="padding:1rem 1.375rem; color:var(--muted); font-size:.875rem;">No job sites found.</p>';
+      return;
+    }
+
+    // Active first, then inactive
+    const sorted = [...cachedJobSites].sort((a, b) => {
+      if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    list.innerHTML = sorted.map(j => `
+      <div class="mgmt-list-item ${j.is_active ? '' : 'mgmt-list-item--inactive'}">
+        <div class="mgmt-list-item__info">
+          <div class="mgmt-list-item__name">${esc(j.name)}
+            ${!j.is_active ? '<span style="font-size:.7rem; color:var(--muted); font-weight:600; margin-left:.25rem;">(inactive)</span>' : ''}
+          </div>
+        </div>
+        <div class="mgmt-list-item__actions">
+          <button class="btn-sm ${j.is_active ? 'btn-sm-danger' : 'btn-sm-success'}"
+            onclick="toggleJobSite('${esc(j.id)}', ${!j.is_active})"
+            aria-label="${j.is_active ? 'Deactivate' : 'Reactivate'} ${esc(j.name)}">
+            ${j.is_active ? 'Deactivate' : 'Reactivate'}
+          </button>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── Load / filter timesheets ──
+
+  async function loadData() {
+    tableBody.innerHTML = `<tr><td colspan="7" class="no-results">Loading…</td></tr>`;
+    currentEntries = await WTPData.filterEntries({
+      startDate: fStart.value || undefined,
+      endDate:   fEnd.value   || undefined,
+      employee:  fEmp.value.trim() || undefined,
+    });
+    renderTable();
+  }
+
+  // ── Column sort ──
+
+  document.querySelectorAll('.wtp-table thead th[data-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+      else { sortCol = col; sortDir = 'asc'; }
+      renderTable();
+    });
+  });
+
+  // ── Filter events ──
+
+  filterBtn.addEventListener('click', loadData);
+  clearBtn.addEventListener('click', () => {
+    fStart.value = ''; fEnd.value = ''; fEmp.value = '';
+    loadData();
+  });
+  fEmp.addEventListener('keydown', e => { if (e.key === 'Enter') loadData(); });
+
+  // ── Export ──
+
+  exportBtn.addEventListener('click', () => {
+    if (currentEntries.length === 0) { showToast('No entries to export.', true); return; }
+    WTPData.exportToCSV(currentEntries);
+    showToast('CSV downloaded!');
+  });
+
+  // ── Edit Timesheet Modal ──
+
+  window.openEdit = function (id) {
+    const entry = currentEntries.find(e => e.id === id);
+    if (!entry) return;
+
+    editId.value    = entry.id;
+    editEmp.value   = entry.employeeName || '—';
+    editDate.value  = entry.date;
+    editPay.value   = entry.payType;
+    editHours.value = entry.hours;
+    editError.style.display = 'none';
+
+    // Populate job name dropdown
+    const activeJobs = cachedJobSites.filter(j => j.is_active);
+    const hasCurrentJob = cachedJobSites.some(j => j.name === entry.jobName);
+    editJob.innerHTML = '<option value="" disabled>Select a job…</option>' +
+      (hasCurrentJob ? '' : `<option value="${esc(entry.jobName)}">${esc(entry.jobName)}</option>`) +
+      activeJobs.map(j => `<option value="${esc(j.name)}">${esc(j.name)}</option>`).join('');
+    editJob.value = entry.jobName;
+
+    // Populate activity dropdown
+    editDesc.innerHTML = '<option value="" disabled>Select an activity…</option>' +
+      WTPData.JOB_DESCRIPTIONS.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+    editDesc.value = entry.jobDescription;
+
+    editModal.classList.remove('hidden');
+    editDate.focus();
+  };
+
+  function closeEditModal() { editModal.classList.add('hidden'); }
+  document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
+  document.getElementById('edit-close').addEventListener('click', closeEditModal);
+  editModal.addEventListener('click', e => { if (e.target === editModal) closeEditModal(); });
+
+  editForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    editError.style.display = 'none';
+
+    const hrs = parseFloat(editHours.value);
+    if (isNaN(hrs) || hrs < 0.25 || hrs > 24) { editError.textContent = 'Hours must be between 0.25 and 24.'; editError.style.display = 'block'; return; }
+
+    const saveBtn = document.getElementById('edit-save');
+    saveBtn.disabled = true;
+    try {
+      await WTPData.update(editId.value, {
+        date:           editDate.value,
+        jobName:        editJob.value,
+        jobDescription: editDesc.value,
+        payType:        editPay.value,
+        hours:          hrs,
+      });
+      closeEditModal();
+      await Promise.all([loadData(), renderAnalytics()]);
+      showToast('Entry updated.');
+    } catch (err) {
+      editError.textContent = err.message || 'Failed to update entry.';
+      editError.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  // ── Delete Timesheet Modal ──
+
+  window.openDelete = function (id) {
+    const entry = currentEntries.find(e => e.id === id);
+    if (!entry) return;
+    pendingDeleteId = id;
+    delPreview.innerHTML = `
+      <strong>${esc(entry.employeeName || '—')}</strong><br>
+      ${esc(entry.date)} &bull; ${esc(entry.jobName)}<br>
+      ${esc(entry.jobDescription || '—')} &bull; ${esc(entry.payType)} &bull; ${entry.hours} hrs`;
+    deleteModal.classList.remove('hidden');
+  };
+
+  function closeDeleteModal() { deleteModal.classList.add('hidden'); pendingDeleteId = null; }
+  document.getElementById('del-cancel').addEventListener('click', closeDeleteModal);
+  document.getElementById('del-close').addEventListener('click', closeDeleteModal);
+  deleteModal.addEventListener('click', e => { if (e.target === deleteModal) closeDeleteModal(); });
+
+  document.getElementById('del-confirm').addEventListener('click', async () => {
+    if (!pendingDeleteId) return;
+    const btn = document.getElementById('del-confirm');
+    btn.disabled = true;
+    try {
+      await WTPData.remove(pendingDeleteId);
+      closeDeleteModal();
+      await Promise.all([loadData(), renderAnalytics()]);
+      showToast('Entry deleted.');
+    } catch (err) {
+      showToast('Failed to delete entry.', true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ── Employee Modal ──
+
+  function openAddEmployee() {
+    empForm.reset();
+    document.getElementById('emp-modal-title').textContent = 'Add Employee';
+    document.getElementById('emp-modal-mode').value = 'add';
+    document.getElementById('emp-modal-id').value = '';
+    document.getElementById('emp-add-fields').style.display = '';
+    document.getElementById('emp-save').textContent = 'Add Employee';
+    document.getElementById('emp-error').style.display = 'none';
+    document.getElementById('emp-rate-reg').value = '25';
+    document.getElementById('emp-rate-ot').value  = '37.50';
+    document.getElementById('emp-rate-dt').value  = '50';
+    document.getElementById('emp-rate-hol').value = '50';
+    empModal.classList.remove('hidden');
+    document.getElementById('emp-fullname').focus();
+  }
+
+  window.openEditEmployee = function (id) {
+    const emp = cachedEmployees.find(e => e.id === id);
+    if (!emp) return;
+    document.getElementById('emp-modal-title').textContent = 'Edit Employee';
+    document.getElementById('emp-modal-mode').value = 'edit';
+    document.getElementById('emp-modal-id').value = id;
+    document.getElementById('emp-fullname').value = emp.full_name;
+    document.getElementById('emp-role').value = emp.role;
+    document.getElementById('emp-rate-reg').value = emp.pay_rate_regular;
+    document.getElementById('emp-rate-ot').value  = emp.pay_rate_overtime;
+    document.getElementById('emp-rate-dt').value  = emp.pay_rate_doubletime;
+    document.getElementById('emp-rate-hol').value = emp.pay_rate_holiday;
+    document.getElementById('emp-add-fields').style.display = 'none';
+    document.getElementById('emp-save').textContent = 'Save Changes';
+    document.getElementById('emp-error').style.display = 'none';
+    empModal.classList.remove('hidden');
+    document.getElementById('emp-fullname').focus();
+  };
+
+  function closeEmpModal() { empModal.classList.add('hidden'); }
+  document.getElementById('emp-modal-close').addEventListener('click', closeEmpModal);
+  document.getElementById('emp-cancel').addEventListener('click', closeEmpModal);
+  empModal.addEventListener('click', e => { if (e.target === empModal) closeEmpModal(); });
+  document.getElementById('add-employee-btn').addEventListener('click', openAddEmployee);
+
+  empForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const errEl   = document.getElementById('emp-error');
+    const saveBtn = document.getElementById('emp-save');
+    const mode    = document.getElementById('emp-modal-mode').value;
+    const empId   = document.getElementById('emp-modal-id').value;
+    errEl.style.display = 'none';
+
+    const fullName = document.getElementById('emp-fullname').value.trim();
+    const role     = document.getElementById('emp-role').value;
+    const rateReg  = parseFloat(document.getElementById('emp-rate-reg').value);
+    const rateOt   = parseFloat(document.getElementById('emp-rate-ot').value);
+    const rateDt   = parseFloat(document.getElementById('emp-rate-dt').value);
+    const rateHol  = parseFloat(document.getElementById('emp-rate-hol').value);
+
+    if (!fullName) { errEl.textContent = 'Full name is required.'; errEl.style.display = 'block'; return; }
+
+    if (mode === 'add') {
+      const email    = document.getElementById('emp-email').value.trim();
+      const password = document.getElementById('emp-password').value;
+      if (!email)              { errEl.textContent = 'Email is required.';                      errEl.style.display = 'block'; return; }
+      if (password.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; errEl.style.display = 'block'; return; }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Creating…';
+      try {
+        const session = await WTPAuth.getSession();
+        const resp = await fetch(`${SUPABASE_FUNCTIONS_URL}/create-employee`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.user.access_token || (await WTPAuth._supabase.auth.getSession()).data.session.access_token}`,
+            'apikey': SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            full_name:            fullName,
+            email,
+            password,
+            role,
+            pay_rate_regular:    rateReg,
+            pay_rate_overtime:   rateOt,
+            pay_rate_doubletime: rateDt,
+            pay_rate_holiday:    rateHol,
+          }),
+        });
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || 'Failed to create employee.');
+        closeEmpModal();
+        await renderEmployeeList();
+        showToast(`${fullName} added successfully!`);
+      } catch (err) {
+        errEl.textContent = err.message || 'Failed to create employee.';
+        errEl.style.display = 'block';
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Add Employee';
+      }
+    } else {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      try {
+        await WTPData.updateEmployee(empId, {
+          full_name:            fullName,
+          role,
+          pay_rate_regular:    rateReg,
+          pay_rate_overtime:   rateOt,
+          pay_rate_doubletime: rateDt,
+          pay_rate_holiday:    rateHol,
+        });
+        closeEmpModal();
+        await renderEmployeeList();
+        showToast('Employee updated.');
+      } catch (err) {
+        errEl.textContent = err.message || 'Failed to update employee.';
+        errEl.style.display = 'block';
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+      }
+    }
+  });
+
+  window.toggleEmployee = async function (id, isActive) {
+    try {
+      await WTPData.toggleEmployee(id, isActive);
+      await renderEmployeeList();
+      showToast(isActive ? 'Employee reactivated.' : 'Employee deactivated.');
+    } catch (err) {
+      showToast('Failed to update employee.', true);
+    }
+  };
+
+  // ── Job Site Modal ──
+
+  function closeJobsiteModal() { jobsiteModal.classList.add('hidden'); }
+  document.getElementById('jobsite-close').addEventListener('click', closeJobsiteModal);
+  document.getElementById('jobsite-cancel').addEventListener('click', closeJobsiteModal);
+  jobsiteModal.addEventListener('click', e => { if (e.target === jobsiteModal) closeJobsiteModal(); });
+  document.getElementById('add-jobsite-btn').addEventListener('click', () => {
+    jobsiteForm.reset();
+    document.getElementById('jobsite-error').style.display = 'none';
+    jobsiteModal.classList.remove('hidden');
+    document.getElementById('jobsite-name').focus();
+  });
+
+  jobsiteForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const errEl   = document.getElementById('jobsite-error');
+    const saveBtn = document.getElementById('jobsite-save');
+    const name    = document.getElementById('jobsite-name').value.trim();
+    errEl.style.display = 'none';
+
+    if (!name) { errEl.textContent = 'Job site name is required.'; errEl.style.display = 'block'; return; }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Adding…';
+    try {
+      await WTPData.addJobSite(name);
+      closeJobsiteModal();
+      await renderJobSiteList();
+      await renderKimaiJobSiteMap(); // refresh mapping table too
+      showToast(`"${name}" added to job sites.`);
+    } catch (err) {
+      errEl.textContent = err.message?.includes('unique') ? 'A job site with that name already exists.' : (err.message || 'Failed to add job site.');
+      errEl.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Add Job Site';
+    }
+  });
+
+  window.toggleJobSite = async function (id, isActive) {
+    try {
+      await WTPData.toggleJobSite(id, isActive);
+      await renderJobSiteList();
+      showToast(isActive ? 'Job site reactivated.' : 'Job site deactivated.');
+    } catch (err) {
+      showToast('Failed to update job site.', true);
+    }
+  };
+
+  // ── Kimai Settings ────────────────────────────────────────────────────────
+
+  async function renderKimaiSettings() {
+    // Show saved URL if config exists
+    const config = await WTPData.getKimaiConfig();
+    const savedUrlEl = document.getElementById('kimai-saved-url');
+    if (config) {
+      savedUrlEl.textContent = `Current: ${config.base_url} (last updated ${new Date(config.updated_at).toLocaleDateString()})`;
+      document.getElementById('kimai-base-url').value = config.base_url;
+    } else {
+      savedUrlEl.textContent = 'Not configured yet.';
+    }
+
+    await Promise.all([renderKimaiJobSiteMap(), renderKimaiActivityMap()]);
+  }
+
+  async function renderKimaiJobSiteMap() {
+    const container = document.getElementById('kimai-jobsite-map');
+    const sites = await WTPData.getJobSites();
+    if (sites.length === 0) {
+      container.innerHTML = '<p style="color:var(--muted);font-size:.875rem;">No job sites found.</p>';
+      return;
+    }
+    container.innerHTML = sites.map(j => `
+      <div class="kimai-row">
+        <span class="kimai-row__label" title="${esc(j.name)}">${esc(j.name)}</span>
+        <input
+          type="number"
+          class="kimai-row__input"
+          id="kjob-${esc(j.id)}"
+          value="${j.kimai_project_id || ''}"
+          placeholder="Project ID"
+          min="1"
+        >
+        <button
+          class="kimai-row__save"
+          onclick="saveJobSiteKimaiId('${esc(j.id)}')"
+          aria-label="Save Kimai project ID for ${esc(j.name)}"
+        >Save</button>
+      </div>`).join('');
+  }
+
+  async function renderKimaiActivityMap() {
+    const container = document.getElementById('kimai-activity-map');
+    const activities = await WTPData.getActivities();
+    if (activities.length === 0) {
+      container.innerHTML = '<p style="color:var(--muted);font-size:.875rem;">No activities found.</p>';
+      return;
+    }
+    container.innerHTML = activities.map(a => `
+      <div class="kimai-row">
+        <span class="kimai-row__label" title="${esc(a.activity_name)}">${esc(a.activity_name)}</span>
+        <input
+          type="number"
+          class="kimai-row__input"
+          id="kact-${esc(a.id)}"
+          value="${a.kimai_activity_id || ''}"
+          placeholder="Activity ID"
+          min="1"
+        >
+        <button
+          class="kimai-row__save"
+          onclick="saveActivityKimaiId('${esc(a.id)}')"
+          aria-label="Save Kimai activity ID for ${esc(a.activity_name)}"
+        >Save</button>
+      </div>`).join('');
+  }
+
+  window.saveJobSiteKimaiId = async function (id) {
+    const input = document.getElementById('kjob-' + id);
+    const btn   = input.nextElementSibling;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      await WTPData.updateJobSiteKimaiId(id, input.value || null);
+      showToast('Kimai project ID saved.');
+    } catch (err) {
+      showToast('Failed to save: ' + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+    }
+  };
+
+  window.saveActivityKimaiId = async function (id) {
+    const input = document.getElementById('kact-' + id);
+    const btn   = input.nextElementSibling;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      await WTPData.updateActivityKimaiId(id, input.value || null);
+      showToast('Kimai activity ID saved.');
+    } catch (err) {
+      showToast('Failed to save: ' + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+    }
+  };
+
+  document.getElementById('kimai-save-btn').addEventListener('click', async () => {
+    const baseUrl  = document.getElementById('kimai-base-url').value.trim();
+    const token    = document.getElementById('kimai-token').value.trim();
+    const statusEl = document.getElementById('kimai-status');
+    const btn      = document.getElementById('kimai-save-btn');
+
+    if (!baseUrl) { showStatus('Base URL is required.', true); return; }
+    if (!token)   { showStatus('API token is required.', true); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      await WTPData.saveKimaiConfig(baseUrl, token);
+      showStatus('Kimai configuration saved.', false);
+      document.getElementById('kimai-saved-url').textContent = `Current: ${baseUrl}`;
+      document.getElementById('kimai-token').value = ''; // clear token field after save
+    } catch (err) {
+      showStatus('Failed to save: ' + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Config';
+    }
+
+    function showStatus(msg, isErr) {
+      statusEl.textContent = msg;
+      statusEl.className = 'kimai-status kimai-status--' + (isErr ? 'err' : 'ok');
+      statusEl.style.display = 'block';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+    }
+  });
+
+  document.getElementById('kimai-test-btn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('kimai-status');
+    const btn      = document.getElementById('kimai-test-btn');
+    btn.disabled = true;
+    btn.textContent = 'Testing…';
+
+    function showStatus(msg, isErr) {
+      statusEl.textContent = msg;
+      statusEl.className = 'kimai-status kimai-status--' + (isErr ? 'err' : 'ok');
+      statusEl.style.display = 'block';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+    }
+
+    try {
+      const session = await WTPAuth._supabase.auth.getSession();
+      if (!session.data.session) throw new Error('Not authenticated');
+
+      const resp = await fetch(KIMAI_EDGE_FN, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + session.data.session.access_token,
+          'Content-Type':  'application/json',
+        },
+        body: JSON.stringify({ action: 'ping' }),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || 'Connection failed');
+      showStatus('Connection successful! Kimai is reachable.', false);
+    } catch (err) {
+      showStatus('Connection failed: ' + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Test Connection';
+    }
+  });
+
+  // ── Refresh shifts ──
+
+  document.getElementById('refresh-shifts-btn').addEventListener('click', async () => {
+    await renderActiveShifts();
+  });
+
+  // ── Escape closes any open modal ──
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeEditModal();
+      closeDeleteModal();
+      closeEmpModal();
+      closeJobsiteModal();
+    }
+  });
+
+  // ── Init ──
+
+  document.getElementById('signout-btn').addEventListener('click', () => WTPAuth.signOut());
+
+  (async () => {
+    const session = await WTPAuth.requireRole('manager');
+    if (!session) return; // redirected
+
+    headerName.textContent = session.employee.full_name;
+    mainContent.style.display = '';
+
+    // Load everything in parallel
+    await Promise.all([
+      renderAnalytics(),
+      renderActiveShifts(),
+      renderEmployeeList(),
+      renderJobSiteList(),
+      loadData(),
+      renderKimaiSettings(),
+    ]);
+
+    // Auto-refresh active shifts every 60 seconds
+    shiftsRefreshInterval = setInterval(renderActiveShifts, 60000);
+  })();
+
+})();
+</script>
+</body>
+</html>

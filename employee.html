@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WTP Time Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Employee-specific inline styles */
+    .grid-stats-emp {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header class="site-header">
+  <div class="site-header__inner">
+    <a class="header-brand" href="#">
+      <img
+        src="assets/logo-colored.webp"
+        alt="Willow Tree Properties"
+        class="header-brand__logo"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+      >
+      <div class="header-brand__icon" style="display:none;" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e6dce9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22V12"/>
+          <path d="M12 12C12 7 8 4 3 3c0 5 3 9 9 9z"/>
+          <path d="M12 12c0-5 4-8 9-9 0 5-3 9-9 9z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="header-brand__name">Willow Tree Properties</div>
+        <div class="header-brand__sub">Employee Portal</div>
+      </div>
+    </a>
+    <div class="header-actions">
+      <span class="header-user" id="header-name" aria-live="polite"></span>
+      <button class="header-link" id="signout-btn" aria-label="Sign out">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sign Out
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<main class="emp-layout" id="main-content" style="display:none;">
+
+  <!-- ── Clock Widget ── -->
+  <div class="card mb-card" id="clock-card">
+    <div class="clock-widget" id="clock-widget">
+      <!-- Rendered by JS -->
+      <p style="color:var(--muted);">Loading…</p>
+    </div>
+  </div>
+
+  <!-- ── Recent Entries ── -->
+  <div>
+    <div class="day-total-bar">
+      <h2 class="day-total-bar__heading">Recent Entries</h2>
+      <span id="week-total"></span>
+    </div>
+    <div id="entries-list"></div>
+  </div>
+
+</main>
+
+<!-- ── Clock In Modal ──────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="clockin-modal" role="dialog" aria-modal="true" aria-labelledby="clockin-title">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="clockin-title">Clock In</h2>
+      <button class="modal-close" id="clockin-close" aria-label="Close modal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <form id="clockin-form" novalidate>
+
+      <div class="modal-row">
+        <label class="modal-label" for="ci-job">Job Site</label>
+        <select id="ci-job" class="wtp-select" required>
+          <option value="" disabled selected>Select a job site…</option>
+        </select>
+      </div>
+
+      <div class="modal-row">
+        <label class="modal-label" for="ci-activity">Activity</label>
+        <select id="ci-activity" class="wtp-select" required>
+          <option value="" disabled selected>Select an activity…</option>
+        </select>
+      </div>
+
+      <div class="modal-row">
+        <label class="modal-label" for="ci-paytype">Pay Type</label>
+        <select id="ci-paytype" class="wtp-select" required>
+          <option value="" disabled selected>Select pay type…</option>
+        </select>
+      </div>
+
+      <p id="clockin-error" style="display:none; color:var(--red-base); font-size:.8125rem; font-weight:500; margin-bottom:.5rem; padding:.5rem .75rem; background:var(--red-light); border-radius:var(--radius-sm); border-left:3px solid var(--red-base);"></p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="clockin-cancel">Cancel</button>
+        <button type="submit" class="btn-save" id="clockin-submit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Start Clock
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ── Scripts ────────────────────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
+<script src="kimai-config.js"></script>
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ── State ──
+  let currentEmployee = null;
+  let userId          = null; // auth user UUID — used as employee_id in timesheets
+  let activeShift     = null;
+  let elapsedTimer    = null;
+  let jobSites        = [];
+
+  // ── DOM refs ──
+  const mainContent   = document.getElementById('main-content');
+  const headerName    = document.getElementById('header-name');
+  const signoutBtn    = document.getElementById('signout-btn');
+  const clockWidget   = document.getElementById('clock-widget');
+  const entriesList   = document.getElementById('entries-list');
+  const weekTotalEl   = document.getElementById('week-total');
+  const toastEl       = document.getElementById('toast');
+
+  const clockinModal  = document.getElementById('clockin-modal');
+  const clockinForm   = document.getElementById('clockin-form');
+  const ciJob         = document.getElementById('ci-job');
+  const ciActivity    = document.getElementById('ci-activity');
+  const ciPaytype     = document.getElementById('ci-paytype');
+  const clockinError  = document.getElementById('clockin-error');
+
+  // ── Helpers ──
+
+  let toastTimer;
+  function showToast(msg, isError = false) {
+    const icon = isError
+      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+    toastEl.innerHTML = icon + '<span>' + escHtml(msg) + '</span>';
+    toastEl.className = 'toast' + (isError ? ' error' : '');
+    void toastEl.offsetWidth;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3500);
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function badgeClass(pt) {
+    const map = { 'Regular': 'Regular', 'Overtime': 'Overtime', 'Double Time': 'DoubleTtime', 'Holiday': 'Holiday' };
+    return 'badge badge-' + (map[pt] || 'Regular');
+  }
+
+  /** Format elapsed seconds as HH:MM:SS */
+  function formatElapsed(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+  }
+
+  // ── Offline banner ──
+
+  function showOfflineBanner(isOffline) {
+    let banner = document.getElementById('offline-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id        = 'offline-banner';
+      banner.className = 'offline-banner';
+      banner.textContent = "You're offline — your timer is still running. Clock-out will sync when reconnected.";
+      document.body.prepend(banner);
+    }
+    banner.style.display = isOffline ? 'block' : 'none';
+  }
+
+  // ── Clock widget render ──
+
+  function renderClockedOut() {
+    stopElapsedTimer();
+    clockWidget.innerHTML = `
+      <div class="clock-status-badge clock-status-badge--out">
+        <span class="clock-status-badge__dot"></span>
+        Not Clocked In
+      </div>
+      <p style="color:var(--muted); font-size:.875rem; margin-bottom:1.5rem;">Select your job site and start tracking.</p>
+      <button class="clock-action-btn clock-action-btn--in" id="do-clockin-btn" aria-label="Clock In">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Clock In
+      </button>`;
+
+    document.getElementById('do-clockin-btn').addEventListener('click', openClockinModal);
+  }
+
+  /**
+   * Render the clocked-in widget from a localStorage shift object.
+   * shift = { timesheetId, kimaiId, clockIn (ISO), jobName, activityName, payType }
+   */
+  function renderClockedIn(shift) {
+    stopElapsedTimer();
+
+    const clockIn    = new Date(shift.clockIn);
+    const getSeconds = () => Math.floor((Date.now() - clockIn) / 1000);
+
+    clockWidget.innerHTML = `
+      <div class="clock-status-badge clock-status-badge--in">
+        <span class="clock-status-badge__dot"></span>
+        Clocked In
+      </div>
+      <div class="clock-job-info">
+        <div class="clock-job-info__label">Job Site</div>
+        <div class="clock-job-info__value">${escHtml(shift.jobName)}</div>
+        <div class="clock-job-info__meta">${escHtml(shift.activityName)} &bull; <span class="${badgeClass(shift.payType)}">${escHtml(shift.payType)}</span></div>
+      </div>
+      <div class="clock-elapsed" id="elapsed-display">${formatElapsed(getSeconds())}</div>
+      <div class="clock-elapsed-label">Time Elapsed</div>
+      <button class="clock-action-btn clock-action-btn--out" id="do-clockout-btn" aria-label="Clock Out">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/>
+        </svg>
+        Clock Out
+      </button>`;
+
+    // Start live elapsed timer — runs entirely client-side, no network needed
+    const display = document.getElementById('elapsed-display');
+    elapsedTimer = setInterval(() => {
+      display.textContent = formatElapsed(getSeconds());
+    }, 1000);
+
+    document.getElementById('do-clockout-btn').addEventListener('click', doClockedOut);
+  }
+
+  function stopElapsedTimer() {
+    if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+  }
+
+  // ── Clock In modal ──
+
+  async function openClockinModal() {
+    clockinError.style.display = 'none';
+    clockinForm.reset();
+
+    // Always fetch fresh data so Kimai IDs reflect manager's latest mapping
+    try {
+      jobSites = (await WTPData.getJobSites()).filter(j => j.is_active);
+    } catch (e) {
+      jobSites = [];
+    }
+
+    let activities = [];
+    try {
+      activities = await WTPData.getActivities();
+    } catch (e) {
+      // Fall back to hardcoded list if DB fetch fails
+      activities = WTPData.JOB_DESCRIPTIONS.map(n => ({ id: n, activity_name: n, kimai_activity_id: null }));
+    }
+
+    ciJob.innerHTML = '<option value="" disabled selected>Select a job site…</option>' +
+      jobSites.map(j =>
+        `<option value="${escHtml(j.name)}" data-kimai-id="${j.kimai_project_id || ''}">${escHtml(j.name)}</option>`
+      ).join('');
+
+    ciActivity.innerHTML = '<option value="" disabled selected>Select an activity…</option>' +
+      activities.map(a =>
+        `<option value="${escHtml(a.activity_name)}" data-kimai-id="${a.kimai_activity_id || ''}">${escHtml(a.activity_name)}</option>`
+      ).join('');
+
+    ciPaytype.innerHTML = '<option value="" disabled selected>Select pay type…</option>' +
+      WTPData.PAY_TYPES.map(p => `<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');
+
+    clockinModal.classList.remove('hidden');
+    ciJob.focus();
+  }
+
+  function closeClockinModal() {
+    clockinModal.classList.add('hidden');
+  }
+
+  document.getElementById('clockin-close').addEventListener('click', closeClockinModal);
+  document.getElementById('clockin-cancel').addEventListener('click', closeClockinModal);
+  clockinModal.addEventListener('click', e => { if (e.target === clockinModal) closeClockinModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeClockinModal(); });
+
+  clockinForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    clockinError.style.display = 'none';
+
+    if (!ciJob.value)      { clockinError.textContent = 'Please select a job site.';  clockinError.style.display = 'block'; return; }
+    if (!ciActivity.value) { clockinError.textContent = 'Please select an activity.'; clockinError.style.display = 'block'; return; }
+    if (!ciPaytype.value)  { clockinError.textContent = 'Please select a pay type.';  clockinError.style.display = 'block'; return; }
+
+    const btn = document.getElementById('clockin-submit');
+    btn.disabled = true;
+    btn.textContent = 'Starting…';
+
+    // Read Kimai IDs from data attributes (null if not mapped)
+    const selectedJobOpt      = ciJob.options[ciJob.selectedIndex];
+    const selectedActivityOpt = ciActivity.options[ciActivity.selectedIndex];
+    const kimaiProjectId      = parseInt(selectedJobOpt.dataset.kimaiId)      || null;
+    const kimaiActivityId     = parseInt(selectedActivityOpt.dataset.kimaiId) || null;
+
+    try {
+      const shift = await WTPData.clockIn(
+        userId,              // auth user UUID
+        ciJob.value,
+        ciActivity.value,
+        ciPaytype.value,
+        kimaiProjectId,
+        kimaiActivityId
+      );
+      activeShift = shift;
+      closeClockinModal();
+      renderClockedIn(shift);
+      showToast('Clocked in — timer started!');
+    } catch (err) {
+      clockinError.textContent = err.message || 'Failed to clock in. Please try again.';
+      clockinError.style.display = 'block';
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Start Clock`;
+    }
+  });
+
+  // ── Clock Out ──
+
+  async function doClockedOut() {
+    const btn = document.getElementById('do-clockout-btn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Clocking out…';
+
+    try {
+      const result = await WTPData.clockOut();
+      activeShift = null;
+      stopElapsedTimer();
+      renderClockedOut();
+
+      if (result.offline) {
+        showToast(`Offline — ${result.hours} hrs queued, will sync on reconnect.`);
+      } else {
+        showToast(`Clocked out — ${result.hours} hr${result.hours === 1 ? '' : 's'} logged!`);
+        await renderRecentEntries();
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to clock out. Please try again.', true);
+      if (btn) { btn.disabled = false; btn.textContent = 'Clock Out'; }
+    }
+  }
+
+  // ── Recent entries ──
+
+  async function renderRecentEntries() {
+    entriesList.innerHTML = '<p style="color:var(--muted);font-size:.875rem;padding:.5rem 0;">Loading…</p>';
+
+    const entries    = await WTPData.getMyRecentEntries(userId);
+    const totalHours = entries.reduce((s, e) => s + e.hours, 0);
+
+    if (entries.length === 0) {
+      weekTotalEl.innerHTML = '';
+      entriesList.innerHTML = `
+        <div class="empty-state">
+          <svg class="empty-state__icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <p class="empty-state__title">No entries in the last 7 days</p>
+          <p class="empty-state__sub">Clock in to start tracking your time.</p>
+        </div>`;
+      return;
+    }
+
+    weekTotalEl.innerHTML = `
+      <span class="day-total-pill">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        ${totalHours % 1 === 0 ? totalHours : totalHours.toFixed(1)} hrs (7 days)
+      </span>`;
+
+    entriesList.innerHTML = entries.map(e => `
+      <div class="entry-card">
+        <div class="entry-card__body">
+          <div class="entry-card__main">
+            <div class="entry-card__job">${escHtml(e.jobName)}</div>
+            <div class="entry-card__meta">${escHtml(e.jobDescription)} &bull; ${escHtml(e.date)}</div>
+          </div>
+          <div class="entry-card__right">
+            <div class="entry-card__hours">${e.hours % 1 === 0 ? e.hours : e.hours.toFixed(2)}</div>
+            <div class="entry-card__hrs-label">hrs</div>
+          </div>
+        </div>
+        <div class="entry-card__footer">
+          <span class="${badgeClass(e.payType)}">${escHtml(e.payType)}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Init ──
+
+  signoutBtn.addEventListener('click', () => WTPAuth.signOut());
+
+  (async () => {
+    const session = await WTPAuth.requireRole('employee');
+    if (!session) return; // redirected
+
+    currentEmployee = session.employee;
+    userId          = session.user.id; // auth UUID — used as employee_id in timesheets
+    headerName.textContent = currentEmployee.full_name;
+    mainContent.style.display = '';
+
+    // 1. Sync any pending offline clock-out from a previous session
+    try {
+      const synced = await WTPData.syncPendingClockOut();
+      if (synced) showToast(`Synced offline clock-out — ${synced.hours} hrs logged`);
+    } catch (e) {
+      console.warn('syncPendingClockOut failed:', e.message);
+    }
+
+    // 2. Restore active shift from localStorage (no network needed)
+    const shift = WTPData.getActiveShift();
+    if (shift) {
+      activeShift = shift;
+      renderClockedIn(shift);
+    } else {
+      renderClockedOut();
+    }
+
+    await renderRecentEntries();
+
+    // 3. Offline/online listeners
+    window.addEventListener('offline', () => showOfflineBanner(true));
+    window.addEventListener('online', async () => {
+      showOfflineBanner(false);
+      try {
+        const synced = await WTPData.syncPendingClockOut();
+        if (synced) {
+          showToast(`Synced — ${synced.hours} hrs saved`);
+          await renderRecentEntries();
+        }
+      } catch (e) {
+        console.warn('Online sync failed:', e.message);
+      }
+    });
+
+    // Show banner immediately if already offline on load
+    if (!navigator.onLine) showOfflineBanner(true);
+  })();
+
+})();
+</script>
+</body>
+</html>

@@ -18,24 +18,10 @@
     @media (max-width: 440px) { .grid-stats { grid-template-columns: 1fr; } }
     .mgmt-header-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 
-    /* Kimai Settings panel */
-    .kimai-panel { padding: 0; }
-    .kimai-panel__section { padding: 1rem 1.375rem; border-bottom: 1px solid var(--border); }
-    .kimai-panel__section:last-child { border-bottom: none; }
-    .kimai-panel__section-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: .875rem; }
-    .kimai-row { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: center; margin-bottom: .5rem; font-size: .875rem; }
-    .kimai-row__label { color: var(--text); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .kimai-row__input { width: 90px; padding: .3rem .5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: .8125rem; font-family: inherit; background: var(--surface); color: var(--text); }
-    .kimai-row__input:focus { outline: 2px solid var(--wtp-purple-400); outline-offset: 1px; }
-    .kimai-row__save { padding: .3rem .625rem; font-size: .75rem; font-weight: 600; border: none; border-radius: var(--radius-sm); background: var(--wtp-purple-600); color: #fff; cursor: pointer; transition: opacity var(--transition-fast); }
-    .kimai-row__save:hover { opacity: .85; }
-    .kimai-row__save:disabled { opacity: .5; cursor: not-allowed; }
-    .kimai-status { font-size: .8125rem; padding: .5rem .75rem; border-radius: var(--radius-sm); margin-top: .5rem; display: none; }
-    .kimai-status--ok  { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
-    .kimai-status--err { background: var(--red-light); color: var(--red-base); border: 1px solid #fca5a5; }
-    .kimai-toggle-btn { display: inline-flex; align-items: center; gap: .375rem; font-size: .75rem; font-weight: 600; }
-    details.kimai-details > summary { list-style: none; cursor: pointer; }
-    details.kimai-details > summary::-webkit-details-marker { display: none; }
+    /* Job Sites collapsible */
+    .jobsites-list--collapsible { overflow: hidden; transition: max-height .3s ease; }
+    .jobsites-chevron { transition: transform .25s ease; vertical-align: -2px; margin-right: .25rem; }
+    .jobsites-chevron.is-collapsed { transform: rotate(-90deg); }
   </style>
 </head>
 <body>
@@ -150,8 +136,13 @@
 
   <!-- ── Job Site Management ── -->
   <div class="mgmt-section mb-section">
-    <div class="mgmt-section__header">
-      <span class="mgmt-section__title">Job Sites</span>
+    <div class="mgmt-section__header" id="jobsites-header" style="cursor:pointer; user-select:none;">
+      <span class="mgmt-section__title">
+        <svg class="jobsites-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+        Job Sites
+      </span>
       <button class="mgmt-add-btn" id="add-jobsite-btn" aria-label="Add new job site">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -159,71 +150,9 @@
         Add Job Site
       </button>
     </div>
-    <div class="mgmt-list" id="jobsites-list">
+    <div class="mgmt-list jobsites-list--collapsible" id="jobsites-list" style="max-height:2000px;">
       <p style="padding:1rem 1.375rem; color:var(--muted); font-size:.875rem;">Loading…</p>
     </div>
-  </div>
-
-  <!-- ── Kimai Integration Settings ── -->
-  <div class="mgmt-section mb-section">
-    <details class="kimai-details">
-      <summary>
-        <div class="mgmt-section__header" style="cursor:pointer; user-select:none;">
-          <span class="mgmt-section__title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:.25rem;" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            Kimai Integration
-          </span>
-          <button class="mgmt-add-btn kimai-toggle-btn" type="button" style="background:linear-gradient(135deg,var(--wtp-purple-500),var(--wtp-purple-600)); pointer-events:none;" aria-hidden="true">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-            Configure
-          </button>
-        </div>
-      </summary>
-
-      <div class="kimai-panel">
-
-        <!-- Connection settings -->
-        <div class="kimai-panel__section">
-          <div class="kimai-panel__section-title">Connection</div>
-          <p id="kimai-saved-url" style="font-size:.8125rem; color:var(--muted); margin-bottom:.75rem;"></p>
-
-          <div class="modal-row">
-            <label class="modal-label" for="kimai-base-url">Kimai Base URL</label>
-            <input type="url" id="kimai-base-url" class="wtp-input" placeholder="https://kimai.example.com">
-          </div>
-          <div class="modal-row">
-            <label class="modal-label" for="kimai-token">Kimai Admin Token</label>
-            <input type="password" id="kimai-token" class="wtp-input" placeholder="Enter API token (stored securely server-side)">
-          </div>
-          <div style="display:flex; gap:.5rem; margin-top:.25rem;">
-            <button class="btn-secondary" id="kimai-save-btn">Save Config</button>
-            <button class="btn-secondary" id="kimai-test-btn">Test Connection</button>
-          </div>
-          <div class="kimai-status" id="kimai-status"></div>
-        </div>
-
-        <!-- WTP Default Project / Activity IDs -->
-        <div class="kimai-panel__section">
-          <div class="kimai-panel__section-title">WTP Kimai Mapping</div>
-          <p style="font-size:.8125rem; color:var(--muted); margin-bottom:.75rem;">
-            Create one project called <strong>WTP</strong> and one activity called <strong>Work</strong> in Kimai. Enter their numeric IDs here. You will never need to change these again.
-          </p>
-          <div class="modal-row">
-            <label class="modal-label" for="kimai-default-project">WTP Project ID</label>
-            <input type="number" id="kimai-default-project" class="wtp-input" placeholder="Numeric project ID" min="1">
-          </div>
-          <div class="modal-row">
-            <label class="modal-label" for="kimai-default-activity">WTP Activity ID</label>
-            <input type="number" id="kimai-default-activity" class="wtp-input" placeholder="Numeric activity ID" min="1">
-          </div>
-        </div>
-
-      </div>
-    </details>
   </div>
 
   <!-- ── Timesheets Table ── -->
@@ -264,13 +193,12 @@
               <th data-col="date">Date <i class="sort-icon">↕</i></th>
               <th data-col="jobName">Job Name <i class="sort-icon">↕</i></th>
               <th data-col="jobDescription">Activity <i class="sort-icon">↕</i></th>
-              <th data-col="payType">Pay Type <i class="sort-icon">↕</i></th>
               <th data-col="hours">Hours <i class="sort-icon">↕</i></th>
               <th class="no-sort">Actions</th>
             </tr>
           </thead>
           <tbody id="table-body">
-            <tr><td colspan="7" class="no-results">Loading…</td></tr>
+            <tr><td colspan="6" class="no-results">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -310,16 +238,6 @@
         <label class="modal-label" for="edit-desc">Activity</label>
         <select id="edit-desc" class="wtp-select" required>
           <option value="" disabled>Select an activity…</option>
-        </select>
-      </div>
-      <div class="modal-row">
-        <label class="modal-label" for="edit-pay">Pay Type</label>
-        <select id="edit-pay" class="wtp-select" required>
-          <option value="" disabled>Select pay type…</option>
-          <option>Regular</option>
-          <option>Overtime</option>
-          <option>Double Time</option>
-          <option>Holiday</option>
         </select>
       </div>
       <div class="modal-row">
@@ -495,7 +413,6 @@
   const editDate    = document.getElementById('edit-date');
   const editJob     = document.getElementById('edit-job');
   const editDesc    = document.getElementById('edit-desc');
-  const editPay     = document.getElementById('edit-pay');
   const editHours   = document.getElementById('edit-hours');
   const editError   = document.getElementById('edit-error');
   const deleteModal = document.getElementById('delete-modal');
@@ -575,7 +492,7 @@
     rowCount.textContent = sorted.length + (sorted.length === 1 ? ' entry' : ' entries');
 
     if (sorted.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="7" class="no-results">No entries match your filters.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="6" class="no-results">No entries match your filters.</td></tr>`;
       return;
     }
 
@@ -585,7 +502,6 @@
         <td>${esc(e.date)}</td>
         <td>${esc(e.jobName)}</td>
         <td class="td-muted">${esc(e.jobDescription || '—')}</td>
-        <td>${badge(e.payType)}</td>
         <td class="td-hours">${e.hours % 1 === 0 ? e.hours : e.hours.toFixed(2)}</td>
         <td class="td-actions">
           <button class="btn-icon btn-edit"   onclick="openEdit('${esc(e.id)}')"   aria-label="Edit entry">Edit</button>
@@ -623,7 +539,6 @@
           <div class="shift-card__name">${esc(s.employee_name)}</div>
           <div class="shift-card__job">${esc(s.job_name)}</div>
           <div class="shift-card__meta">
-            ${badge(s.pay_type)}
             <span>${esc(s.job_description || '')}</span>
             <span>since ${fmtTime(s.clock_in)}</span>
           </div>
@@ -712,7 +627,7 @@
   // ── Load / filter timesheets ──
 
   async function loadData() {
-    tableBody.innerHTML = `<tr><td colspan="7" class="no-results">Loading…</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="6" class="no-results">Loading…</td></tr>`;
     currentEntries = await WTPData.filterEntries({
       startDate: fStart.value || undefined,
       endDate:   fEnd.value   || undefined,
@@ -758,7 +673,6 @@
     editId.value    = entry.id;
     editEmp.value   = entry.employeeName || '—';
     editDate.value  = entry.date;
-    editPay.value   = entry.payType;
     editHours.value = entry.hours;
     editError.style.display = 'none';
 
@@ -798,7 +712,6 @@
         date:           editDate.value,
         jobName:        editJob.value,
         jobDescription: editDesc.value,
-        payType:        editPay.value,
         hours:          hrs,
       });
       closeEditModal();
@@ -821,7 +734,7 @@
     delPreview.innerHTML = `
       <strong>${esc(entry.employeeName || '—')}</strong><br>
       ${esc(entry.date)} &bull; ${esc(entry.jobName)}<br>
-      ${esc(entry.jobDescription || '—')} &bull; ${esc(entry.payType)} &bull; ${entry.hours} hrs`;
+      ${esc(entry.jobDescription || '—')} &bull; ${entry.hours} hrs`;
     deleteModal.classList.remove('hidden');
   };
 
@@ -915,12 +828,13 @@
       saveBtn.disabled = true;
       saveBtn.textContent = 'Creating…';
       try {
-        const session = await WTPAuth.getSession();
+        const { data: { session: authSession } } = await WTPAuth._supabase.auth.getSession();
+        if (!authSession) throw new Error('Not authenticated. Please sign in again.');
         const resp = await fetch(`${SUPABASE_FUNCTIONS_URL}/create-employee`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.user.access_token || (await WTPAuth._supabase.auth.getSession()).data.session.access_token}`,
+            'Authorization': `Bearer ${authSession.access_token}`,
             'apikey': SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({
@@ -1030,89 +944,22 @@
     }
   };
 
-  // ── Kimai Settings ────────────────────────────────────────────────────────
+  // ── Job Sites collapsible ──
 
-  async function renderKimaiSettings() {
-    const config = await WTPData.getKimaiConfig();
-    const savedUrlEl = document.getElementById('kimai-saved-url');
-    if (config) {
-      savedUrlEl.textContent = `Current: ${config.base_url} (last updated ${new Date(config.updated_at).toLocaleDateString()})`;
-      document.getElementById('kimai-base-url').value = config.base_url;
-      if (config.default_project_id)  document.getElementById('kimai-default-project').value  = config.default_project_id;
-      if (config.default_activity_id) document.getElementById('kimai-default-activity').value = config.default_activity_id;
-    } else {
-      savedUrlEl.textContent = 'Not configured yet.';
-    }
-  }
+  (function () {
+    const header  = document.getElementById('jobsites-header');
+    const list    = document.getElementById('jobsites-list');
+    const chevron = header.querySelector('.jobsites-chevron');
+    let collapsed = false;
 
-  document.getElementById('kimai-save-btn').addEventListener('click', async () => {
-    const baseUrl         = document.getElementById('kimai-base-url').value.trim();
-    const token           = document.getElementById('kimai-token').value.trim();
-    const defaultProject  = parseInt(document.getElementById('kimai-default-project').value)  || null;
-    const defaultActivity = parseInt(document.getElementById('kimai-default-activity').value) || null;
-    const statusEl        = document.getElementById('kimai-status');
-    const btn             = document.getElementById('kimai-save-btn');
-
-    if (!baseUrl) { showStatus('Base URL is required.', true); return; }
-    if (!token)   { showStatus('API token is required.', true); return; }
-
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
-    try {
-      await WTPData.saveKimaiConfig(baseUrl, token, defaultProject, defaultActivity);
-      showStatus('Kimai configuration saved.', false);
-      document.getElementById('kimai-saved-url').textContent = `Current: ${baseUrl}`;
-      document.getElementById('kimai-token').value = '';
-    } catch (err) {
-      showStatus('Failed to save: ' + err.message, true);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Save Config';
-    }
-
-    function showStatus(msg, isErr) {
-      statusEl.textContent = msg;
-      statusEl.className = 'kimai-status kimai-status--' + (isErr ? 'err' : 'ok');
-      statusEl.style.display = 'block';
-      setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
-    }
-  });
-
-  document.getElementById('kimai-test-btn').addEventListener('click', async () => {
-    const statusEl = document.getElementById('kimai-status');
-    const btn      = document.getElementById('kimai-test-btn');
-    btn.disabled = true;
-    btn.textContent = 'Testing…';
-
-    function showStatus(msg, isErr) {
-      statusEl.textContent = msg;
-      statusEl.className = 'kimai-status kimai-status--' + (isErr ? 'err' : 'ok');
-      statusEl.style.display = 'block';
-      setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
-    }
-
-    try {
-      const session = await WTPAuth._supabase.auth.getSession();
-      if (!session.data.session) throw new Error('Not authenticated');
-
-      const resp = await fetch(KIMAI_EDGE_FN, {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + session.data.session.access_token,
-          'Content-Type':  'application/json',
-        },
-        body: JSON.stringify({ action: 'ping' }),
-      });
-      const result = await resp.json();
-      if (!resp.ok) throw new Error(result.error || 'Connection failed');
-      showStatus('Connection successful! Kimai is reachable.', false);
-    } catch (err) {
-      showStatus('Connection failed: ' + err.message, true);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Test Connection';
-    }
-  });
+    header.addEventListener('click', function (e) {
+      // Don't collapse when clicking the Add button
+      if (e.target.closest('#add-jobsite-btn')) return;
+      collapsed = !collapsed;
+      list.style.maxHeight   = collapsed ? '0px' : '2000px';
+      chevron.classList.toggle('is-collapsed', collapsed);
+    });
+  })();
 
   // ── Refresh shifts ──
 
@@ -1149,7 +996,6 @@
       renderEmployeeList(),
       renderJobSiteList(),
       loadData(),
-      renderKimaiSettings(),
     ]);
 
     // Auto-refresh active shifts every 60 seconds

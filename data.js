@@ -161,7 +161,7 @@ const WTPData = (() => {
    * @param {string} payType     — 'Regular' | 'Overtime' | 'Double Time' | 'Holiday'
    * @returns {object} shift — localStorage shift object
    */
-  async function clockIn(employeeId, jobName, activityName, payType) {
+  async function clockIn(employeeId, jobName, activityName, payType = 'Regular') {
     const now        = new Date();
     const clockInISO = now.toISOString();
 
@@ -550,6 +550,6 @@ const WTPData = (() => {
     // Export
     exportToCSV,
     // Constants
-    JOB_DESCRIPTIONS, PAY_TYPES,
+    JOB_DESCRIPTIONS,
   };
 })();

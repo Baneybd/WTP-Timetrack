@@ -104,13 +104,6 @@
         </select>
       </div>
 
-      <div class="modal-row">
-        <label class="modal-label" for="ci-paytype">Pay Type</label>
-        <select id="ci-paytype" class="wtp-select" required>
-          <option value="" disabled selected>Select pay type…</option>
-        </select>
-      </div>
-
       <p id="clockin-error" style="display:none; color:var(--red-base); font-size:.8125rem; font-weight:500; margin-bottom:.5rem; padding:.5rem .75rem; background:var(--red-light); border-radius:var(--radius-sm); border-left:3px solid var(--red-base);"></p>
 
       <div class="modal-actions">
@@ -160,7 +153,6 @@
   const clockinForm   = document.getElementById('clockin-form');
   const ciJob         = document.getElementById('ci-job');
   const ciActivity    = document.getElementById('ci-activity');
-  const ciPaytype     = document.getElementById('ci-paytype');
   const clockinError  = document.getElementById('clockin-error');
 
   // ── Helpers ──
@@ -249,7 +241,7 @@
       <div class="clock-job-info">
         <div class="clock-job-info__label">Job Site</div>
         <div class="clock-job-info__value">${escHtml(shift.jobName)}</div>
-        <div class="clock-job-info__meta">${escHtml(shift.activityName)} &bull; <span class="${badgeClass(shift.payType)}">${escHtml(shift.payType)}</span></div>
+        <div class="clock-job-info__meta">${escHtml(shift.activityName)}</div>
       </div>
       <div class="clock-elapsed" id="elapsed-display">${formatElapsed(getSeconds())}</div>
       <div class="clock-elapsed-label">Time Elapsed</div>
@@ -296,9 +288,6 @@
         `<option value="${escHtml(a)}">${escHtml(a)}</option>`
       ).join('');
 
-    ciPaytype.innerHTML = '<option value="" disabled selected>Select pay type…</option>' +
-      WTPData.PAY_TYPES.map(p => `<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');
-
     clockinModal.classList.remove('hidden');
     ciJob.focus();
   }
@@ -318,7 +307,6 @@
 
     if (!ciJob.value)      { clockinError.textContent = 'Please select a job site.';  clockinError.style.display = 'block'; return; }
     if (!ciActivity.value) { clockinError.textContent = 'Please select an activity.'; clockinError.style.display = 'block'; return; }
-    if (!ciPaytype.value)  { clockinError.textContent = 'Please select a pay type.';  clockinError.style.display = 'block'; return; }
 
     const btn = document.getElementById('clockin-submit');
     btn.disabled = true;
@@ -328,8 +316,7 @@
       const shift = await WTPData.clockIn(
         userId,
         ciJob.value,
-        ciActivity.value,
-        ciPaytype.value
+        ciActivity.value
       );
       activeShift = shift;
       closeClockinModal();
@@ -409,9 +396,6 @@
             <div class="entry-card__hours">${e.hours % 1 === 0 ? e.hours : e.hours.toFixed(2)}</div>
             <div class="entry-card__hrs-label">hrs</div>
           </div>
-        </div>
-        <div class="entry-card__footer">
-          <span class="${badgeClass(e.payType)}">${escHtml(e.payType)}</span>
         </div>
       </div>
     `).join('');

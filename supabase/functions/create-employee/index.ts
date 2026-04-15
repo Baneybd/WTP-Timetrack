@@ -31,9 +31,9 @@ serve(async (req) => {
     if (userErr || !caller) throw new Error('Not authenticated.')
 
     const { data: callerProfile, error: profileErr } = await supabaseClient
-      .from('employees')
+      .from('profiles')
       .select('role')
-      .eq('auth_id', caller.id)
+      .eq('id', caller.id)
       .single()
     if (profileErr || callerProfile?.role !== 'manager') {
       throw new Error('Not authorized. Only managers can create employee accounts.')

@@ -2,7 +2,7 @@
 // Deployed via: supabase functions deploy create-employee --no-verify-jwt
 //
 // Called by manager.html to create a new Supabase Auth user and
-// link them to the employees table. Requires the caller to be a manager.
+// link them to the employees + profiles tables. Requires the caller to be a manager.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
@@ -10,6 +10,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 serve(async (req) => {
@@ -20,7 +21,9 @@ serve(async (req) => {
 
   try {
     // Verify the calling user is authenticated and is a manager
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) throw new Error('Missing Authorization header.')
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -68,13 +71,25 @@ serve(async (req) => {
       email,
       password,
       email_confirm: true,
+      user_metadata: { full_name, role },
     })
     if (authError) throw authError
 
-    // Insert the employee profile, linked to the new auth user
+    // Upsert the profiles row so the new employee can log in with the correct role.
+    // Uses onConflict:'id' in case a DB trigger already created a stub row.
+    const { error: profileUpsertErr } = await adminClient
+      .from('profiles')
+      .upsert({ id: newUser.user.id, full_name, role }, { onConflict: 'id' })
+    if (profileUpsertErr) {
+      // Non-fatal: log but continue — the employee row is still created below
+      console.error('Profile upsert warning:', profileUpsertErr.message)
+    }
+
+    // Insert the employee profile with pay-rate details
     const { data: employee, error: empError } = await adminClient
       .from('employees')
       .insert({
+        id:                  newUser.user.id,
         auth_id:             newUser.user.id,
         full_name,
         email,
@@ -97,7 +112,7 @@ serve(async (req) => {
     })
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error.message || 'An unexpected error occurred.' }),
+      JSON.stringify({ error: (error as Error).message || 'An unexpected error occurred.' }),
       {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },

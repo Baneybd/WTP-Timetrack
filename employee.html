@@ -20,7 +20,7 @@
 </head>
 <body>
 
-<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<!-- ── Header  -->
 <header class="site-header">
   <div class="site-header__inner">
     <a class="header-brand" href="#">
@@ -54,7 +54,20 @@
   </div>
 </header>
 
-<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<!-- ── Clocked-In Reminder Banner ── -->
+<div id="clocked-in-banner" style="display:none; background:#fef3c7; border-bottom:2px solid #fcd34d; padding:.75rem 1.25rem; font-size:.875rem; font-weight:500; color:#78350f; position:sticky; top:0; z-index:50; display:none;">
+  <div style="max-width:680px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap;">
+    <span id="clocked-in-banner-msg">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      You're currently clocked in.
+    </span>
+    <button id="clocked-in-banner-dismiss" style="background:none; border:1px solid #f59e0b; border-radius:4px; padding:2px 10px; color:#92400e; font-size:.8rem; font-weight:600; cursor:pointer;">Dismiss</button>
+  </div>
+</div>
+
+<!-- ── Main ─── -->
 <main class="emp-layout" id="main-content" style="display:none;">
 
   <!-- ── Clock Widget ── -->
@@ -76,7 +89,7 @@
 
 </main>
 
-<!-- ── Clock In Modal ──────────────────────────────────────────────────── -->
+<!-- ── Clock In Modal ── -->
 <div class="modal-overlay hidden" id="clockin-modal" role="dialog" aria-modal="true" aria-labelledby="clockin-title">
   <div class="modal-box">
     <div class="modal-header">
@@ -120,10 +133,10 @@
   </div>
 </div>
 
-<!-- ── Toast ──────────────────────────────────────────────────────────── -->
+<!-- ── Toast ─── -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- ── Scripts ────────────────────────────────────────────────────────── -->
+<!-- ── Scripts ───-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="auth.js"></script>
@@ -433,7 +446,42 @@
 
     await renderRecentEntries();
 
-    // 3. Offline/online listeners
+    // 3. Clocked-in reminder banner
+    const banner        = document.getElementById('clocked-in-banner');
+    const bannerMsg     = document.getElementById('clocked-in-banner-msg');
+    const bannerDismiss = document.getElementById('clocked-in-banner-dismiss');
+    let bannerDismissedAt = 0;
+
+    function checkClockedInReminder() {
+      const s = WTPData.getActiveShift();
+      if (!s) { banner.style.display = 'none'; return; }
+
+      const now = Date.now();
+      const hoursIn = (now - new Date(s.clockIn)) / 3600000;
+      const dismissed = (now - bannerDismissedAt) < 7200000; // suppress for 2 hours after dismiss
+
+      if (dismissed && hoursIn < 2) { banner.style.display = 'none'; return; }
+
+      banner.style.display = 'block';
+      if (hoursIn >= 2) {
+        const h = Math.floor(hoursIn);
+        const m = Math.round((hoursIn - h) * 60);
+        const timeStr = h + ' hr' + (h !== 1 ? 's' : '') + (m > 0 ? ' ' + m + ' min' : '');
+        bannerMsg.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> You've been clocked in as <strong>${escHtml(s.jobName)}</strong> for <strong>${timeStr}</strong> — still working?`;
+      } else {
+        bannerMsg.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> You're currently clocked in at <strong>${escHtml(s.jobName)}</strong>.`;
+      }
+    }
+
+    bannerDismiss.addEventListener('click', () => {
+      bannerDismissedAt = Date.now();
+      banner.style.display = 'none';
+    });
+
+    checkClockedInReminder();
+    setInterval(checkClockedInReminder, 7200000); // re-check every 2 hours
+
+    // 4. Offline/online listeners
     window.addEventListener('offline', () => showOfflineBanner(true));
     window.addEventListener('online', async () => {
       showOfflineBanner(false);

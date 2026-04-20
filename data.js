@@ -10,7 +10,7 @@ const WTPData = (() => {
   // Re-use the Supabase client from auth.js to share the session
   const _db = WTPAuth._supabase;
 
-  // ─── Constants ────────────────────────────────────────────────────────────
+  // ─── Constants ─-
 
   const JOB_DESCRIPTIONS = [
     'General Labor', 'Equipment Operation', 'Skilled Trade',
@@ -26,39 +26,52 @@ const WTPData = (() => {
     pendingClockOut: 'wtp_pending_out',   // { timesheetId, kimaiId, clockIn, clockOut (ISO), hours } — set when offline
   };
 
-  // ─── Row Mapping ──────────────────────────────────────────────────────────
+  // ─── Row Mapping ──
   // Maps the new timesheets schema columns → the app's camelCase keys.
   // profiles join (select '*, profiles(full_name)') populates employeeName.
 
   function _fromRow(row) {
     return {
-      id:             row.id,
-      employeeName:   row.profiles?.full_name || '',
-      employeeId:     row.employee_id,
-      date:           row.date,
-      jobName:        row.project_name,
-      jobDescription: row.task_description,
-      payType:        row.pay_type,
-      hours:          parseFloat(row.hours_worked || 0),
-      timestamp:      row.created_at,
-      clockIn:        row.date && row.start_time ? (row.date + 'T' + row.start_time) : null,
-      clockOut:       row.date && row.end_time   ? (row.date + 'T' + row.end_time)   : null,
-      status:         row.status,
-      approved:       row.approved,
-      flagged:        row.flagged,
+      id:              row.id,
+      employeeName:    row.profiles?.full_name || '',
+      employeeId:      row.employee_id,
+      date:            row.date,
+      jobName:         row.project_name,
+      jobDescription:  row.task_description,
+      payType:         row.pay_type,
+      hours:           parseFloat(row.hours_worked || 0),
+      timestamp:       row.created_at,
+      clockIn:         row.date && row.start_time ? (row.date + 'T' + row.start_time) : null,
+      clockOut:        row.date && row.end_time   ? (row.date + 'T' + row.end_time)   : null,
+      status:          row.status,
+      approved:        row.approved,
+      flagged:         row.flagged,
+      auto_clocked_out: row.auto_clocked_out || false,
+      notes:           row.notes || '',
     };
   }
 
-  // ─── Job Sites ────────────────────────────────────────────────────────────
+  // ─── Job Sites ──
 
-  /** Fetch all job sites. */
-  async function getJobSites() {
-    const { data, error } = await _db
+  /** Fetch job sites. Pass includeArchived=true to include archived ones. */
+  async function getJobSites(includeArchived = false) {
+    let query = _db
       .from('job_sites')
-      .select('id, name, is_active')
+      .select('id, name, is_active, archived')
       .order('name', { ascending: true });
+    if (!includeArchived) query = query.neq('archived', true);
+    const { data, error } = await query;
     if (error) { console.error('WTPData.getJobSites:', error.message); return []; }
     return data || [];
+  }
+
+  /** Archive or unarchive a job site. */
+  async function archiveJobSite(id, archived) {
+    const { error } = await _db
+      .from('job_sites')
+      .update({ archived })
+      .eq('id', id);
+    if (error) { console.error('WTPData.archiveJobSite:', error.message); throw error; }
   }
 
   /** Insert a new job site. Returns the created row or throws. */
@@ -81,7 +94,7 @@ const WTPData = (() => {
     if (error) { console.error('WTPData.toggleJobSite:', error.message); throw error; }
   }
 
-  // ─── Kimai Config ─────────────────────────────────────────────────────────
+  // ─── Kimai Config ───
 
   /** Read current Kimai config (base_url, default IDs — token is server-side). */
   async function getKimaiConfig() {
@@ -107,7 +120,7 @@ const WTPData = (() => {
     if (error) { console.error('WTPData.saveKimaiConfig:', error.message); throw error; }
   }
 
-  // ─── Employees ────────────────────────────────────────────────────────────
+  // ─── Employees ───
 
   /** Fetch all employees (manager only via RLS). Queries legacy employees table. */
   async function getEmployees() {
@@ -147,7 +160,7 @@ const WTPData = (() => {
     if (error) { console.error('WTPData.toggleEmployee:', error.message); throw error; }
   }
 
-  // ─── Clock In / Out (Kimai-backed, offline-aware) ─────────────────────────
+  // ─── Clock In / Out (Kimai-backed, offline-aware) ───
 
   /**
    * Clock an employee in.
@@ -361,6 +374,93 @@ const WTPData = (() => {
   }
 
   /**
+   * Clock out an employee from the manager dashboard.
+   * Attempts Kimai stop, then updates the Supabase row to completed.
+   * @param {string} shiftId           — timesheets row UUID
+   * @param {string|null} kimaiId      — Kimai timesheet ID (may be null)
+   * @returns {{ hours: number }}
+   */
+  async function managerClockOut(shiftId, kimaiId) {
+    const clockOutTime = new Date();
+
+    // Fetch shift to get clock-in time
+    const { data: shift, error: fetchErr } = await _db
+      .from('timesheets')
+      .select('created_at')
+      .eq('id', shiftId)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    const rawHours = (clockOutTime - new Date(shift.created_at)) / 3600000;
+    let finalHours = Math.round(rawHours * 4) / 4 || 0.25;
+
+    // Attempt Kimai stop (non-fatal)
+    if (kimaiId) {
+      try {
+        const session = await _db.auth.getSession();
+        const kimaiResp = await fetch(KIMAI_EDGE_FN, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + session.data.session.access_token,
+            'Content-Type':  'application/json',
+          },
+          body: JSON.stringify({ action: 'stop', timesheetId: kimaiId }),
+        });
+        if (kimaiResp.ok) {
+          const stopped = await kimaiResp.json();
+          if (stopped.duration) {
+            finalHours = Math.round((stopped.duration / 3600) * 4) / 4 || 0.25;
+          }
+        }
+      } catch (e) {
+        console.warn('Kimai manager clock-out failed (non-fatal):', e.message);
+      }
+    }
+
+    const { error } = await _db.from('timesheets').update({
+      hours_worked: finalHours,
+      end_time:     clockOutTime.toTimeString().slice(0, 8),
+      status:       'completed',
+    }).eq('id', shiftId);
+    if (error) throw error;
+
+    return { hours: finalHours };
+  }
+
+  /**
+   * Create a completed timesheet entry in the past (manager-only).
+   * @param {{ employeeId, projectName, taskDescription, payType, date, startTime?, endTime?, hoursWorked?, notes? }}
+   */
+  async function createPastEntry({ employeeId, projectName, taskDescription, payType, date, startTime, endTime, hoursWorked, notes }) {
+    let hours = hoursWorked ? parseFloat(hoursWorked) : null;
+    if (!hours && startTime && endTime) {
+      const start = new Date(date + 'T' + startTime);
+      const end   = new Date(date + 'T' + endTime);
+      hours = Math.round(((end - start) / 3600000) * 4) / 4 || 0.25;
+    }
+    if (!hours || hours <= 0) throw new Error('Could not calculate hours — provide start/end times or hours_worked.');
+
+    const { data, error } = await _db
+      .from('timesheets')
+      .insert({
+        employee_id:      employeeId,
+        date,
+        project_name:     projectName,
+        task_description: taskDescription,
+        pay_type:         payType || 'Regular',
+        start_time:       startTime || null,
+        end_time:         endTime   || null,
+        hours_worked:     hours,
+        status:           'completed',
+        notes:            notes || null,
+      })
+      .select('*, profiles(full_name)')
+      .single();
+    if (error) throw error;
+    return _fromRow(data);
+  }
+
+  /**
    * Get active shift from DB for a specific employee (fallback; not used by the
    * updated employee.html which reads from localStorage via getActiveShift()).
    */
@@ -387,16 +487,18 @@ const WTPData = (() => {
       .order('created_at', { ascending: true });
     if (error) { console.error('WTPData.getActiveShifts:', error.message); return []; }
     return (data || []).map(s => ({
-      id:              s.id,
-      employee_name:   s.profiles?.full_name || 'Unknown',
-      job_name:        s.project_name,
-      job_description: s.task_description,
-      pay_type:        s.pay_type,
-      clock_in:        s.created_at, // ISO TIMESTAMPTZ — used for elapsed timer
+      id:                  s.id,
+      employee_name:       s.profiles?.full_name || 'Unknown',
+      employee_id:         s.employee_id,
+      job_name:            s.project_name,
+      job_description:     s.task_description,
+      pay_type:            s.pay_type,
+      clock_in:            s.created_at, // ISO TIMESTAMPTZ — used for elapsed timer
+      kimai_timesheet_id:  s.kimai_timesheet_id || null,
     }));
   }
 
-  // ─── Timesheet CRUD ───────────────────────────────────────────────────────
+  // ─── Timesheet CRUD ──
 
   /** Fetch all completed timesheet entries, most recent first. */
   async function getAll() {
@@ -436,11 +538,11 @@ const WTPData = (() => {
   }
 
   /**
-   * Filter completed timesheet entries server-side by date range.
+   * Filter completed timesheet entries server-side by date range, job site, pay type.
    * Employee name is filtered client-side after the join.
-   * @param {{ startDate?, endDate?, employee? }} opts
+   * @param {{ startDate?, endDate?, employee?, jobSite?, payType? }} opts
    */
-  async function filterEntries({ startDate, endDate, employee } = {}) {
+  async function filterEntries({ startDate, endDate, employee, jobSite, payType } = {}) {
     let query = _db
       .from('timesheets')
       .select('*, profiles(full_name)')
@@ -448,6 +550,8 @@ const WTPData = (() => {
       .order('date', { ascending: false });
     if (startDate) query = query.gte('date', startDate);
     if (endDate)   query = query.lte('date', endDate);
+    if (jobSite)   query = query.eq('project_name', jobSite);
+    if (payType)   query = query.eq('pay_type', payType);
 
     const { data, error } = await query;
     if (error) { console.error('WTPData.filterEntries:', error.message); return []; }
@@ -495,7 +599,7 @@ const WTPData = (() => {
     });
   }
 
-  // ─── Analytics ────────────────────────────────────────────────────────────
+  // ─── Analytics ───
 
   /** Returns { weekHours, totalEntries } */
   async function getAnalytics() {
@@ -507,17 +611,24 @@ const WTPData = (() => {
     return { weekHours, totalEntries: allEntries.length };
   }
 
-  // ─── CSV Export ───────────────────────────────────────────────────────────
+  // ─── CSV Export ──
 
   /**
    * Export entries to CSV. Sorted by date ascending.
-   * Columns: Date, Employee, Job Name, Pay Type, Hours
+   * Columns: Date, Employee, Job Site, Activity, Pay Type, Hours, Auto Clocked Out, Notes
    */
   function exportToCSV(entries) {
     const sorted  = entries.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-    const headers = ['Date', 'Employee', 'Job Name', 'Activity', 'Pay Type', 'Hours'];
+    const headers = ['Date', 'Employee', 'Job Site', 'Activity', 'Pay Type', 'Hours', 'Auto Clocked Out', 'Notes'];
     const rows    = sorted.map(e => [
-      e.date, e.employeeName, e.jobName, e.jobDescription, e.payType, e.hours,
+      e.date,
+      e.employeeName,
+      e.jobName,
+      e.jobDescription,
+      e.payType || 'Regular',
+      e.hours,
+      e.auto_clocked_out ? 'Y' : 'N',
+      e.notes || '',
     ]);
     const escape = v => `"${String(v).replace(/"/g, '""')}"`;
     const csv    = [headers, ...rows].map(r => r.map(escape).join(',')).join('\r\n');
@@ -532,24 +643,26 @@ const WTPData = (() => {
     URL.revokeObjectURL(url);
   }
 
-  // ─── Public API ───────────────────────────────────────────────────────────
+  // ─── Public API ───
   return {
     // Job sites
-    getJobSites, addJobSite, toggleJobSite,
+    getJobSites, addJobSite, toggleJobSite, archiveJobSite,
     // Kimai config
     getKimaiConfig, saveKimaiConfig,
     // Employees
     getEmployees, updateEmployee, toggleEmployee,
     // Clock in/out (Kimai-backed, offline-aware)
     clockIn, clockOut, getActiveShift, syncPendingClockOut,
-    // Active shifts
-    getMyActiveShift, getActiveShifts,
+    // Active shifts (manager)
+    getMyActiveShift, getActiveShifts, managerClockOut,
     // Timesheets
     getAll, update, remove, filterEntries, getMyRecentEntries,
     getThisWeekEntries, getAnalytics,
+    // Past entry creation (manager)
+    createPastEntry,
     // Export
     exportToCSV,
     // Constants
-    JOB_DESCRIPTIONS,
+    JOB_DESCRIPTIONS, PAY_TYPES,
   };
 })();

@@ -22,11 +22,26 @@
     .jobsites-list--collapsible { overflow: hidden; transition: max-height .3s ease; }
     .jobsites-chevron { transition: transform .25s ease; vertical-align: -2px; margin-right: .25rem; }
     .jobsites-chevron.is-collapsed { transform: rotate(-90deg); }
+
+    /* Auto clocked-out row highlight */
+    .row-auto-clockout td { background: #fffbeb !important; }
+    .row-auto-clockout:hover td { background: #fef3c7 !important; }
+    .badge-auto { display:inline-block; background:#fef3c7; color:#92400e; border:1px solid #fcd34d; font-size:.65rem; font-weight:700; padding:1px 6px; border-radius:3px; vertical-align:middle; margin-left:4px; letter-spacing:.03em; }
+
+    /* Manager clock-out button on shift cards */
+    .shift-card__footer { margin-top:.5rem; }
+    .btn-clockout-mgr { width:100%; padding:.35rem .75rem; font-size:.78rem; font-weight:600; background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; border-radius:var(--radius-sm); cursor:pointer; transition:background .15s; }
+    .btn-clockout-mgr:hover { background:#fecaca; }
+
+    /* Archive toggle */
+    .btn-show-archived { font-size:.75rem; color:var(--muted); background:none; border:none; cursor:pointer; text-decoration:underline; padding:.25rem .5rem; }
+    .mgmt-list-item--archived { opacity:.55; }
+    .badge-archived { display:inline-block; background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; font-size:.65rem; font-weight:700; padding:1px 5px; border-radius:3px; vertical-align:middle; margin-left:4px; }
   </style>
 </head>
 <body>
 
-<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<!-- ── Header ─── -->
 <header class="site-header">
   <div class="site-header__inner">
     <a class="header-brand" href="#">
@@ -66,7 +81,7 @@
   </div>
 </header>
 
-<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<!-- ── Main ───-->
 <main class="mgr-layout" id="main-content" style="display:none;">
 
   <!-- ── Stats ── -->
@@ -122,12 +137,20 @@
   <div class="mgmt-section mb-section">
     <div class="mgmt-section__header">
       <span class="mgmt-section__title">Employees</span>
-      <button class="mgmt-add-btn" id="add-employee-btn" aria-label="Add new employee">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        Add Employee
-      </button>
+      <div class="mgmt-header-actions">
+        <button class="mgmt-add-btn" id="add-employee-btn" aria-label="Add new employee">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add Employee
+        </button>
+        <button class="mgmt-add-btn" id="create-past-entry-btn" style="background:linear-gradient(135deg,var(--wtp-blue-600),#446070);" aria-label="Create past time entry">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Create Past Entry
+        </button>
+      </div>
     </div>
     <div class="mgmt-list" id="employees-list">
       <p style="padding:1rem 1.375rem; color:var(--muted); font-size:.875rem;">Loading…</p>
@@ -173,6 +196,22 @@
         <label class="filter-label" for="f-emp">Employee Name</label>
         <input type="text" id="f-emp" class="filter-input" placeholder="Search by name…">
       </div>
+      <div class="filter-group">
+        <label class="filter-label" for="f-jobsite">Job Site</label>
+        <select id="f-jobsite" class="filter-input">
+          <option value="">All Job Sites</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label" for="f-paytype">Pay Type</label>
+        <select id="f-paytype" class="filter-input">
+          <option value="">All Pay Types</option>
+          <option value="Regular">Regular</option>
+          <option value="Overtime">Overtime</option>
+          <option value="Double Time">Double Time</option>
+          <option value="Holiday">Holiday</option>
+        </select>
+      </div>
       <div class="filter-actions">
         <button class="btn-secondary" id="filter-btn">Apply</button>
         <button class="btn-secondary" id="clear-btn">Clear</button>
@@ -191,14 +230,15 @@
             <tr>
               <th data-col="employeeName">Employee <i class="sort-icon">↕</i></th>
               <th data-col="date">Date <i class="sort-icon">↕</i></th>
-              <th data-col="jobName">Job Name <i class="sort-icon">↕</i></th>
+              <th data-col="jobName">Job Site <i class="sort-icon">↕</i></th>
               <th data-col="jobDescription">Activity <i class="sort-icon">↕</i></th>
+              <th data-col="payType">Pay Type <i class="sort-icon">↕</i></th>
               <th data-col="hours">Hours <i class="sort-icon">↕</i></th>
               <th class="no-sort">Actions</th>
             </tr>
           </thead>
           <tbody id="table-body">
-            <tr><td colspan="6" class="no-results">Loading…</td></tr>
+            <tr><td colspan="7" class="no-results">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -207,7 +247,7 @@
 
 </main>
 
-<!-- ── Edit Timesheet Modal ─────────────────────────────────────────────── -->
+<!-- ── Edit Timesheet Modal ─── -->
 <div class="modal-overlay hidden" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-title">
   <div class="modal-box">
     <div class="modal-header">
@@ -241,6 +281,15 @@
         </select>
       </div>
       <div class="modal-row">
+        <label class="modal-label" for="edit-paytype">Pay Type</label>
+        <select id="edit-paytype" class="wtp-select">
+          <option value="Regular">Regular</option>
+          <option value="Overtime">Overtime</option>
+          <option value="Double Time">Double Time</option>
+          <option value="Holiday">Holiday</option>
+        </select>
+      </div>
+      <div class="modal-row">
         <label class="modal-label" for="edit-hours">Hours</label>
         <input type="number" id="edit-hours" class="wtp-input" min="0.25" max="24" step="0.25" required>
       </div>
@@ -253,7 +302,7 @@
   </div>
 </div>
 
-<!-- ── Delete Timesheet Modal ──────────────────────────────────────────── -->
+<!-- ── Delete Timesheet Modal ───-->
 <div class="modal-overlay hidden" id="delete-modal" role="dialog" aria-modal="true">
   <div class="modal-box modal-box--danger" style="max-width:420px;">
     <div class="modal-header">
@@ -273,7 +322,7 @@
   </div>
 </div>
 
-<!-- ── Add Employee Modal ──────────────────────────────────────────────── -->
+<!-- ── Add Employee Modal ──-->
 <div class="modal-overlay hidden" id="emp-modal" role="dialog" aria-modal="true" aria-labelledby="emp-modal-title">
   <div class="modal-box" style="max-width:560px;">
     <div class="modal-header">
@@ -347,7 +396,7 @@
   </div>
 </div>
 
-<!-- ── Add Job Site Modal ──────────────────────────────────────────────── -->
+<!-- ── Add Job Site Modal ─── -->
 <div class="modal-overlay hidden" id="jobsite-modal" role="dialog" aria-modal="true" aria-labelledby="jobsite-modal-title">
   <div class="modal-box" style="max-width:420px;">
     <div class="modal-header">
@@ -372,10 +421,106 @@
   </div>
 </div>
 
-<!-- ── Toast ──────────────────────────────────────────────────────────── -->
+<!-- ── Create Past Entry Modal ─── -->
+<div class="modal-overlay hidden" id="past-entry-modal" role="dialog" aria-modal="true" aria-labelledby="past-entry-title">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="past-entry-title">Create Past Entry</h2>
+      <button class="modal-close" id="past-entry-close" aria-label="Close modal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <form id="past-entry-form" novalidate>
+      <div class="modal-row-grid">
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="pe-employee">Employee</label>
+          <select id="pe-employee" class="wtp-select" required>
+            <option value="" disabled selected>Select employee…</option>
+          </select>
+        </div>
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="pe-date">Date</label>
+          <input type="date" id="pe-date" class="wtp-input" required>
+        </div>
+      </div>
+      <div class="modal-row-grid" style="margin-top:1rem;">
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="pe-jobsite">Job Site</label>
+          <select id="pe-jobsite" class="wtp-select" required>
+            <option value="" disabled selected>Select job site…</option>
+          </select>
+        </div>
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="pe-activity">Activity</label>
+          <select id="pe-activity" class="wtp-select" required>
+            <option value="" disabled selected>Select activity…</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-row-grid" style="margin-top:1rem;">
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="pe-paytype">Pay Type</label>
+          <select id="pe-paytype" class="wtp-select">
+            <option value="Regular">Regular</option>
+            <option value="Overtime">Overtime</option>
+            <option value="Double Time">Double Time</option>
+            <option value="Holiday">Holiday</option>
+          </select>
+        </div>
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="pe-hours">Hours Worked (optional)</label>
+          <input type="number" id="pe-hours" class="wtp-input" min="0.25" max="24" step="0.25" placeholder="Auto-calculated from times">
+        </div>
+      </div>
+      <div class="modal-row-grid" style="margin-top:1rem;">
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="pe-start-time">Clock In Time</label>
+          <input type="time" id="pe-start-time" class="wtp-input">
+        </div>
+        <div class="modal-row" style="margin-bottom:0;">
+          <label class="modal-label" for="pe-end-time">Clock Out Time</label>
+          <input type="time" id="pe-end-time" class="wtp-input">
+        </div>
+      </div>
+      <div class="modal-row" style="margin-top:1rem;">
+        <label class="modal-label" for="pe-notes">Notes (optional)</label>
+        <input type="text" id="pe-notes" class="wtp-input" placeholder="Any relevant notes…">
+      </div>
+      <p id="past-entry-error" style="display:none; color:var(--red-base); font-size:.8125rem; font-weight:500; margin-top:.75rem; padding:.5rem .75rem; background:var(--red-light); border-radius:var(--radius-sm); border-left:3px solid var(--red-base);"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="past-entry-cancel">Cancel</button>
+        <button type="submit" class="btn-save" id="past-entry-save">Create Entry</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Manager Clock-Out Confirm Modal ─── -->
+<div class="modal-overlay hidden" id="mgr-clockout-modal" role="dialog" aria-modal="true">
+  <div class="modal-box modal-box--danger" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title modal-title--danger">Clock Out Employee?</h2>
+      <button class="modal-close" id="mgr-clockout-close" aria-label="Close modal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <p class="modal-danger-sub">This will end their active shift and log their hours.</p>
+    <div class="del-preview" id="mgr-clockout-preview"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" id="mgr-clockout-cancel">Cancel</button>
+      <button type="button" class="btn-del-confirm" id="mgr-clockout-confirm">Clock Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ─── -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- ── Scripts ────────────────────────────────────────────────────────── -->
+<!-- ── Scripts ─── -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="auth.js"></script>
@@ -402,6 +547,8 @@
   const fStart      = document.getElementById('f-start');
   const fEnd        = document.getElementById('f-end');
   const fEmp        = document.getElementById('f-emp');
+  const fJobsite    = document.getElementById('f-jobsite');
+  const fPaytype    = document.getElementById('f-paytype');
   const filterBtn   = document.getElementById('filter-btn');
   const clearBtn    = document.getElementById('clear-btn');
   const exportBtn   = document.getElementById('export-btn');
@@ -417,10 +564,16 @@
   const editError   = document.getElementById('edit-error');
   const deleteModal = document.getElementById('delete-modal');
   const delPreview  = document.getElementById('del-preview');
-  const empModal    = document.getElementById('emp-modal');
-  const empForm     = document.getElementById('emp-form');
+  const empModal      = document.getElementById('emp-modal');
+  const empForm       = document.getElementById('emp-form');
   const jobsiteModal  = document.getElementById('jobsite-modal');
   const jobsiteForm   = document.getElementById('jobsite-form');
+  const pastEntryModal   = document.getElementById('past-entry-modal');
+  const pastEntryForm    = document.getElementById('past-entry-form');
+  const mgrClockoutModal = document.getElementById('mgr-clockout-modal');
+
+  // ── State for manager clock-out confirm ──
+  let pendingMgrClockout = null; // { shiftId, kimaiId, employeeName }
 
   // ── Utilities ──
 
@@ -492,17 +645,18 @@
     rowCount.textContent = sorted.length + (sorted.length === 1 ? ' entry' : ' entries');
 
     if (sorted.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="6" class="no-results">No entries match your filters.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="7" class="no-results">No entries match your filters.</td></tr>`;
       return;
     }
 
     tableBody.innerHTML = sorted.map(e => `
-      <tr>
-        <td class="td-name">${esc(e.employeeName || '—')}</td>
+      <tr class="${e.auto_clocked_out ? 'row-auto-clockout' : ''}">
+        <td class="td-name">${esc(e.employeeName || '—')}${e.auto_clocked_out ? '<span class="badge-auto" title="Auto clocked out at 4:00 AM">Auto</span>' : ''}</td>
         <td>${esc(e.date)}</td>
         <td>${esc(e.jobName)}</td>
         <td class="td-muted">${esc(e.jobDescription || '—')}</td>
-        <td class="td-hours">${e.hours % 1 === 0 ? e.hours : e.hours.toFixed(2)}</td>
+        <td>${badge(e.payType || 'Regular')}</td>
+        <td class="td-hours">${e.hours % 1 === 0 ? e.hours : e.hours.toFixed(2)}${e.auto_clocked_out ? '<br><span style="font-size:.7rem;color:#92400e;">Auto @ 4:00 AM</span>' : ''}</td>
         <td class="td-actions">
           <button class="btn-icon btn-edit"   onclick="openEdit('${esc(e.id)}')"   aria-label="Edit entry">Edit</button>
           <button class="btn-icon btn-delete" onclick="openDelete('${esc(e.id)}')">Delete</button>
@@ -543,6 +697,13 @@
             <span>since ${fmtTime(s.clock_in)}</span>
           </div>
           <div class="shift-card__elapsed" id="elapsed-${esc(s.id)}">${fmtElapsed(s.clock_in)}</div>
+          <div class="shift-card__footer">
+            <button class="btn-clockout-mgr"
+              onclick="openMgrClockout('${esc(s.id)}', ${s.kimai_timesheet_id ? `'${esc(String(s.kimai_timesheet_id))}'` : 'null'}, '${esc(s.employee_name)}')"
+              aria-label="Clock out ${esc(s.employee_name)}">
+              Clock Out
+            </button>
+          </div>
         </div>`).join('')
     }</div>`;
 
@@ -592,46 +753,103 @@
 
   // ── Job site list ──
 
+  let showArchivedJobSites = false;
+
   async function renderJobSiteList() {
     const list = document.getElementById('jobsites-list');
-    cachedJobSites = await WTPData.getJobSites();
+    cachedJobSites = await WTPData.getJobSites(showArchivedJobSites);
 
     if (cachedJobSites.length === 0) {
-      list.innerHTML = '<p style="padding:1rem 1.375rem; color:var(--muted); font-size:.875rem;">No job sites found.</p>';
+      list.innerHTML = `<p style="padding:1rem 1.375rem; color:var(--muted); font-size:.875rem;">No job sites found.
+        <button class="btn-show-archived" onclick="toggleArchivedJobSites()">${showArchivedJobSites ? 'Hide archived' : 'Show archived'}</button>
+      </p>`;
       return;
     }
 
-    // Active first, then inactive
+    // Active first, then inactive, then archived
     const sorted = [...cachedJobSites].sort((a, b) => {
+      if (!!a.archived !== !!b.archived) return a.archived ? 1 : -1;
       if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
 
     list.innerHTML = sorted.map(j => `
-      <div class="mgmt-list-item ${j.is_active ? '' : 'mgmt-list-item--inactive'}">
+      <div class="mgmt-list-item ${j.archived ? 'mgmt-list-item--archived' : (j.is_active ? '' : 'mgmt-list-item--inactive')}">
         <div class="mgmt-list-item__info">
           <div class="mgmt-list-item__name">${esc(j.name)}
-            ${!j.is_active ? '<span style="font-size:.7rem; color:var(--muted); font-weight:600; margin-left:.25rem;">(inactive)</span>' : ''}
+            ${j.archived ? '<span class="badge-archived">Archived</span>' : (!j.is_active ? '<span style="font-size:.7rem; color:var(--muted); font-weight:600; margin-left:.25rem;">(inactive)</span>' : '')}
           </div>
         </div>
         <div class="mgmt-list-item__actions">
-          <button class="btn-sm ${j.is_active ? 'btn-sm-danger' : 'btn-sm-success'}"
-            onclick="toggleJobSite('${esc(j.id)}', ${!j.is_active})"
-            aria-label="${j.is_active ? 'Deactivate' : 'Reactivate'} ${esc(j.name)}">
-            ${j.is_active ? 'Deactivate' : 'Reactivate'}
-          </button>
+          ${!j.archived ? `
+            <button class="btn-sm ${j.is_active ? 'btn-sm-danger' : 'btn-sm-success'}"
+              onclick="toggleJobSite('${esc(j.id)}', ${!j.is_active})"
+              aria-label="${j.is_active ? 'Deactivate' : 'Reactivate'} ${esc(j.name)}">
+              ${j.is_active ? 'Deactivate' : 'Reactivate'}
+            </button>
+            <button class="btn-sm btn-sm-danger"
+              onclick="archiveJobSite('${esc(j.id)}')"
+              aria-label="Archive ${esc(j.name)}">
+              Archive
+            </button>
+          ` : `
+            <button class="btn-sm btn-sm-success"
+              onclick="unarchiveJobSite('${esc(j.id)}')"
+              aria-label="Unarchive ${esc(j.name)}">
+              Unarchive
+            </button>
+          `}
         </div>
-      </div>`).join('');
+      </div>`).join('') +
+      `<div style="padding:.5rem 1.375rem; border-top:1px solid var(--border);">
+        <button class="btn-show-archived" onclick="toggleArchivedJobSites()">
+          ${showArchivedJobSites ? '▲ Hide archived sites' : '▼ Show archived sites'}
+        </button>
+      </div>`;
+
+    // Also refresh job site filter dropdown with non-archived sites
+    const activeForFilter = cachedJobSites.filter(j => !j.archived);
+    const prevVal = fJobsite.value;
+    fJobsite.innerHTML = '<option value="">All Job Sites</option>' +
+      activeForFilter.map(j => `<option value="${esc(j.name)}">${esc(j.name)}</option>`).join('');
+    if (prevVal) fJobsite.value = prevVal;
   }
+
+  window.toggleArchivedJobSites = function () {
+    showArchivedJobSites = !showArchivedJobSites;
+    renderJobSiteList();
+  };
+
+  window.archiveJobSite = async function (id) {
+    try {
+      await WTPData.archiveJobSite(id, true);
+      await renderJobSiteList();
+      showToast('Job site archived. It will no longer appear in clock-in dropdowns.');
+    } catch (err) {
+      showToast('Failed to archive job site.', true);
+    }
+  };
+
+  window.unarchiveJobSite = async function (id) {
+    try {
+      await WTPData.archiveJobSite(id, false);
+      await renderJobSiteList();
+      showToast('Job site restored.');
+    } catch (err) {
+      showToast('Failed to restore job site.', true);
+    }
+  };
 
   // ── Load / filter timesheets ──
 
   async function loadData() {
-    tableBody.innerHTML = `<tr><td colspan="6" class="no-results">Loading…</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="7" class="no-results">Loading…</td></tr>`;
     currentEntries = await WTPData.filterEntries({
       startDate: fStart.value || undefined,
       endDate:   fEnd.value   || undefined,
       employee:  fEmp.value.trim() || undefined,
+      jobSite:   fJobsite.value || undefined,
+      payType:   fPaytype.value || undefined,
     });
     renderTable();
   }
@@ -652,6 +870,7 @@
   filterBtn.addEventListener('click', loadData);
   clearBtn.addEventListener('click', () => {
     fStart.value = ''; fEnd.value = ''; fEmp.value = '';
+    fJobsite.value = ''; fPaytype.value = '';
     loadData();
   });
   fEmp.addEventListener('keydown', e => { if (e.key === 'Enter') loadData(); });
@@ -689,6 +908,9 @@
       WTPData.JOB_DESCRIPTIONS.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
     editDesc.value = entry.jobDescription;
 
+    // Populate pay type
+    document.getElementById('edit-paytype').value = entry.payType || 'Regular';
+
     editModal.classList.remove('hidden');
     editDate.focus();
   };
@@ -712,6 +934,7 @@
         date:           editDate.value,
         jobName:        editJob.value,
         jobDescription: editDesc.value,
+        payType:        document.getElementById('edit-paytype').value,
         hours:          hrs,
       });
       closeEditModal();
@@ -944,6 +1167,120 @@
     }
   };
 
+  // ── Manager Clock-Out Modal ──
+
+  window.openMgrClockout = function (shiftId, kimaiId, employeeName) {
+    pendingMgrClockout = { shiftId, kimaiId, employeeName };
+    document.getElementById('mgr-clockout-preview').innerHTML =
+      `<strong>${esc(employeeName)}</strong><br>This will end their active shift and calculate hours worked.`;
+    mgrClockoutModal.classList.remove('hidden');
+  };
+
+  function closeMgrClockoutModal() {
+    mgrClockoutModal.classList.add('hidden');
+    pendingMgrClockout = null;
+  }
+
+  document.getElementById('mgr-clockout-close').addEventListener('click', closeMgrClockoutModal);
+  document.getElementById('mgr-clockout-cancel').addEventListener('click', closeMgrClockoutModal);
+  mgrClockoutModal.addEventListener('click', e => { if (e.target === mgrClockoutModal) closeMgrClockoutModal(); });
+
+  document.getElementById('mgr-clockout-confirm').addEventListener('click', async () => {
+    if (!pendingMgrClockout) return;
+    const btn = document.getElementById('mgr-clockout-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Clocking out…';
+    try {
+      const result = await WTPData.managerClockOut(pendingMgrClockout.shiftId, pendingMgrClockout.kimaiId);
+      const name = pendingMgrClockout.employeeName;
+      closeMgrClockoutModal();
+      await Promise.all([renderActiveShifts(), loadData(), renderAnalytics()]);
+      showToast(`${name} clocked out — ${result.hours} hr${result.hours === 1 ? '' : 's'} logged.`);
+    } catch (err) {
+      showToast(err.message || 'Failed to clock out employee.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Clock Out';
+    }
+  });
+
+  // ── Create Past Entry Modal ──
+
+  function openPastEntryModal() {
+    pastEntryForm.reset();
+    document.getElementById('past-entry-error').style.display = 'none';
+
+    // Populate employees
+    const empSel = document.getElementById('pe-employee');
+    empSel.innerHTML = '<option value="" disabled selected>Select employee…</option>' +
+      cachedEmployees.map(e => `<option value="${esc(e.auth_id || e.id)}">${esc(e.full_name)}</option>`).join('');
+
+    // Populate job sites (active, non-archived)
+    const jsSel = document.getElementById('pe-jobsite');
+    const activeJobSites = cachedJobSites.filter(j => j.is_active && !j.archived);
+    jsSel.innerHTML = '<option value="" disabled selected>Select job site…</option>' +
+      activeJobSites.map(j => `<option value="${esc(j.name)}">${esc(j.name)}</option>`).join('');
+
+    // Populate activities
+    const actSel = document.getElementById('pe-activity');
+    actSel.innerHTML = '<option value="" disabled selected>Select activity…</option>' +
+      WTPData.JOB_DESCRIPTIONS.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+
+    // Default date to today
+    document.getElementById('pe-date').value = new Date().toISOString().slice(0, 10);
+
+    pastEntryModal.classList.remove('hidden');
+    document.getElementById('pe-employee').focus();
+  }
+
+  function closePastEntryModal() { pastEntryModal.classList.add('hidden'); }
+
+  document.getElementById('past-entry-close').addEventListener('click', closePastEntryModal);
+  document.getElementById('past-entry-cancel').addEventListener('click', closePastEntryModal);
+  pastEntryModal.addEventListener('click', e => { if (e.target === pastEntryModal) closePastEntryModal(); });
+  document.getElementById('create-past-entry-btn').addEventListener('click', openPastEntryModal);
+
+  pastEntryForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const errEl   = document.getElementById('past-entry-error');
+    const saveBtn = document.getElementById('past-entry-save');
+    errEl.style.display = 'none';
+
+    const employeeId      = document.getElementById('pe-employee').value;
+    const date            = document.getElementById('pe-date').value;
+    const projectName     = document.getElementById('pe-jobsite').value;
+    const taskDescription = document.getElementById('pe-activity').value;
+    const payType         = document.getElementById('pe-paytype').value;
+    const startTime       = document.getElementById('pe-start-time').value;
+    const endTime         = document.getElementById('pe-end-time').value;
+    const hoursWorked     = document.getElementById('pe-hours').value;
+    const notes           = document.getElementById('pe-notes').value.trim();
+
+    if (!employeeId)      { errEl.textContent = 'Please select an employee.';  errEl.style.display = 'block'; return; }
+    if (!date)            { errEl.textContent = 'Please select a date.';        errEl.style.display = 'block'; return; }
+    if (!projectName)     { errEl.textContent = 'Please select a job site.';   errEl.style.display = 'block'; return; }
+    if (!taskDescription) { errEl.textContent = 'Please select an activity.';  errEl.style.display = 'block'; return; }
+    if (!hoursWorked && (!startTime || !endTime)) {
+      errEl.textContent = 'Provide either start/end times or hours worked.';
+      errEl.style.display = 'block'; return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Creating…';
+    try {
+      await WTPData.createPastEntry({ employeeId, projectName, taskDescription, payType, date, startTime, endTime, hoursWorked, notes });
+      closePastEntryModal();
+      await Promise.all([loadData(), renderAnalytics()]);
+      showToast('Past entry created successfully.');
+    } catch (err) {
+      errEl.textContent = err.message || 'Failed to create entry.';
+      errEl.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Create Entry';
+    }
+  });
+
   // ── Job Sites collapsible ──
 
   (function () {
@@ -975,6 +1312,8 @@
       closeDeleteModal();
       closeEmpModal();
       closeJobsiteModal();
+      closePastEntryModal();
+      closeMgrClockoutModal();
     }
   });
 

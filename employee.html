@@ -286,14 +286,14 @@
 
     // Always fetch fresh data so Kimai IDs reflect manager's latest mapping
     try {
-      jobSites = (await WTPData.getJobSites()).filter(j => j.is_active);
+      jobSites = await WTPData.getJobSites(); // archived already excluded; inactive included below
     } catch (e) {
       jobSites = [];
     }
 
     ciJob.innerHTML = '<option value="" disabled selected>Select a job site…</option>' +
       jobSites.map(j =>
-        `<option value="${escHtml(j.name)}">${escHtml(j.name)}</option>`
+        `<option value="${escHtml(j.name)}"${!j.is_active ? ' style="color:var(--muted);"' : ''}>${escHtml(j.name)}${!j.is_active ? ' (inactive)' : ''}</option>`
       ).join('');
 
     ciActivity.innerHTML = '<option value="" disabled selected>Select an activity…</option>' +

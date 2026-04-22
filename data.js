@@ -128,7 +128,7 @@ const WTPData = (() => {
       .from('employees')
       .select('*')
       .order('full_name', { ascending: true });
-    if (error) { console.error('WTPData.getEmployees:', error.message); return []; }
+    if (error) { console.error('WTPData.getEmployees:', error.message); throw error; }
     return data || [];
   }
 
@@ -380,8 +380,8 @@ const WTPData = (() => {
    * @param {string|null} kimaiId      — Kimai timesheet ID (may be null)
    * @returns {{ hours: number }}
    */
-  async function managerClockOut(shiftId, kimaiId) {
-    const clockOutTime = new Date();
+  async function managerClockOut(shiftId, kimaiId, customClockOutISO) {
+    const clockOutTime = customClockOutISO ? new Date(customClockOutISO) : new Date();
 
     // Fetch shift to get clock-in time
     const { data: shift, error: fetchErr } = await _db

@@ -1,7 +1,7 @@
 // supabase/functions/auto-clockout/index.ts
 // Clocks out all employees still active at 4:00 AM.
-// Called by pg_cron:
-//   SELECT cron.schedule('wtp-auto-clockout', '0 4 * * *',
+// Called by pg_cron (runs at 2:00 AM server time — adjust UTC offset for your timezone):
+//   SELECT cron.schedule('wtp-auto-clockout', '0 2 * * *',
 //     $$SELECT net.http_post(url:='https://<project-ref>.supabase.co/functions/v1/auto-clockout',
 //       headers:='{"Authorization":"Bearer <service-role-key>"}'::jsonb)$$);
 //
@@ -49,10 +49,10 @@ serve(async (req) => {
       })
     }
 
-    // 4:00 AM cutoff — use the current day at 04:00 UTC
+    // 2:00 AM cutoff — use the current day at 02:00 local server time
     const now = new Date()
     const cutoff = new Date(now)
-    cutoff.setHours(4, 0, 0, 0)
+    cutoff.setHours(2, 0, 0, 0)
 
     // Try to stop Kimai timers (best-effort)
     const kimaiConfig = await adminClient
@@ -87,7 +87,7 @@ serve(async (req) => {
           .update({
             status:           'completed',
             auto_clocked_out: true,
-            end_time:         '04:00:00',
+            end_time:         '02:00:00',
             hours_worked:     hours,
           })
           .eq('id', shift.id)

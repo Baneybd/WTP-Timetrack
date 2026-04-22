@@ -523,6 +523,30 @@
   </div>
 </div>
 
+<!-- ── Force Clock-Out Modal ─── -->
+<div class="modal-overlay hidden" id="force-co-modal" role="dialog" aria-modal="true">
+  <div class="modal-box modal-box--danger" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title modal-title--danger">Force Clock Out</h2>
+      <button class="modal-close" id="force-co-close" aria-label="Close modal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <p class="modal-danger-sub">Hours will be calculated from original clock-in to the time you set below.</p>
+    <div class="del-preview" id="force-co-preview"></div>
+    <div class="modal-row" style="margin-top:.75rem;">
+      <label class="modal-label" for="force-co-time">Clock-Out Date &amp; Time</label>
+      <input type="datetime-local" id="force-co-time" class="wtp-input" required>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" id="force-co-cancel">Cancel</button>
+      <button type="button" class="btn-del-confirm" id="force-co-confirm">Force Clock Out</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Toast ─── -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -710,6 +734,11 @@
               aria-label="Clock out ${esc(s.employee_name)}">
               Clock Out
             </button>
+            <button class="btn-clockout-mgr" style="margin-top:.3rem;opacity:.75;"
+              onclick="openForceClockout('${esc(s.id)}', ${s.kimai_timesheet_id ? `'${esc(String(s.kimai_timesheet_id))}'` : 'null'}, '${esc(s.employee_name)}')"
+              aria-label="Force clock out ${esc(s.employee_name)} with custom time">
+              Force Clock Out…
+            </button>
           </div>
         </div>`).join('')
     }</div>`;
@@ -729,7 +758,15 @@
 
   async function renderEmployeeList() {
     const list = document.getElementById('employees-list');
-    cachedEmployees = await WTPData.getEmployees();
+    try {
+      cachedEmployees = await WTPData.getEmployees();
+    } catch (err) {
+      list.innerHTML = `<p style="padding:1rem 1.375rem; color:var(--red-base); font-size:.875rem;">
+        Could not load employees: ${esc(err.message || 'Permission denied')}.<br>
+        <span style="font-weight:400; color:var(--muted);">Run <code>supabase/migrations/fix_employees_rls.sql</code> in your Supabase SQL editor.</span>
+      </p>`;
+      return;
+    }
 
     const displayed = showInactiveEmployees
       ? cachedEmployees
@@ -1238,6 +1275,51 @@
     }
   });
 
+  // ── Force Clock-Out Modal ──
+
+  let pendingForceClockout = null;
+  const forceCoModal = document.getElementById('force-co-modal');
+
+  window.openForceClockout = function (shiftId, kimaiId, employeeName) {
+    pendingForceClockout = { shiftId, kimaiId, employeeName };
+    document.getElementById('force-co-preview').innerHTML =
+      `<strong>${esc(employeeName)}</strong>`;
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    document.getElementById('force-co-time').value =
+      `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    forceCoModal.classList.remove('hidden');
+  };
+
+  function closeForceCoModal() {
+    forceCoModal.classList.add('hidden');
+    pendingForceClockout = null;
+  }
+
+  document.getElementById('force-co-close').addEventListener('click', closeForceCoModal);
+  document.getElementById('force-co-cancel').addEventListener('click', closeForceCoModal);
+  forceCoModal.addEventListener('click', e => { if (e.target === forceCoModal) closeForceCoModal(); });
+
+  document.getElementById('force-co-confirm').addEventListener('click', async () => {
+    if (!pendingForceClockout) return;
+    const timeVal = document.getElementById('force-co-time').value;
+    if (!timeVal) { showToast('Please set a clock-out time.', true); return; }
+    const btn = document.getElementById('force-co-confirm');
+    btn.disabled = true; btn.textContent = 'Processing…';
+    try {
+      const result = await WTPData.managerClockOut(
+        pendingForceClockout.shiftId, pendingForceClockout.kimaiId, timeVal);
+      const name = pendingForceClockout.employeeName;
+      closeForceCoModal();
+      await Promise.all([renderActiveShifts(), loadData(), renderAnalytics()]);
+      showToast(`${name} force clocked out — ${result.hours} hr${result.hours === 1 ? '' : 's'} logged.`);
+    } catch (err) {
+      showToast(err.message || 'Failed to force clock out.', true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Force Clock Out';
+    }
+  });
+
   // ── Create Past Entry Modal ──
 
   function openPastEntryModal() {
@@ -1348,6 +1430,7 @@
       closeJobsiteModal();
       closePastEntryModal();
       closeMgrClockoutModal();
+      closeForceCoModal();
     }
   });
 
@@ -1361,6 +1444,22 @@
 
     headerName.textContent = session.employee.full_name;
     mainContent.style.display = '';
+
+    // Default filter to current Mon–Sun on every fresh page load
+    (function () {
+      const t   = new Date();
+      const dow = t.getDay(); // 0=Sun
+      const mon = new Date(t);
+      mon.setDate(t.getDate() - (dow === 0 ? 6 : dow - 1));
+      mon.setHours(0, 0, 0, 0);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      const fmt = d => d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+      fStart.value = fmt(mon);
+      fEnd.value   = fmt(sun);
+    })();
 
     // Load everything in parallel
     await Promise.all([

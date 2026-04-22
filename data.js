@@ -274,7 +274,7 @@ const WTPData = (() => {
     const clockOutTime = new Date();
     const clockInTime  = new Date(shift.clockIn);
     const rawHours     = (clockOutTime - clockInTime) / 3600000;
-    const hours        = Math.round(rawHours * 4) / 4 || 0.25; // min 0.25, nearest quarter
+    const hours        = Math.max(0.25, Math.round(rawHours * 4) / 4); // min 0.25, nearest quarter
 
     // If offline — queue and return early
     if (!navigator.onLine) {
@@ -306,7 +306,7 @@ const WTPData = (() => {
         if (kimaiResp.ok) {
           const stopped = await kimaiResp.json();
           if (stopped.duration) {
-            finalHours = Math.round((stopped.duration / 3600) * 4) / 4 || 0.25;
+            finalHours = Math.max(0.25, Math.round((stopped.duration / 3600) * 4) / 4);
           }
         }
       } catch (kimaiErr) {
@@ -392,7 +392,7 @@ const WTPData = (() => {
     if (fetchErr) throw fetchErr;
 
     const rawHours = (clockOutTime - new Date(shift.created_at)) / 3600000;
-    let finalHours = Math.round(rawHours * 4) / 4 || 0.25;
+    let finalHours = Math.max(0.25, Math.round(rawHours * 4) / 4);
 
     // Attempt Kimai stop (non-fatal)
     if (kimaiId) {
@@ -409,7 +409,7 @@ const WTPData = (() => {
         if (kimaiResp.ok) {
           const stopped = await kimaiResp.json();
           if (stopped.duration) {
-            finalHours = Math.round((stopped.duration / 3600) * 4) / 4 || 0.25;
+            finalHours = Math.max(0.25, Math.round((stopped.duration / 3600) * 4) / 4);
           }
         }
       } catch (e) {
@@ -619,7 +619,8 @@ const WTPData = (() => {
    */
   function exportToCSV(entries) {
     const sorted  = entries.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-    const headers = ['Date', 'Employee', 'Job Site', 'Activity', 'Pay Type', 'Hours', 'Auto Clocked Out', 'Notes'];
+    const fmtTime = iso => iso ? iso.split('T')[1]?.slice(0, 5) || '' : '';
+    const headers = ['Date', 'Employee', 'Job Site', 'Activity', 'Pay Type', 'Hours', 'Clock In', 'Clock Out', 'Auto Clocked Out', 'Notes'];
     const rows    = sorted.map(e => [
       e.date,
       e.employeeName,
@@ -627,16 +628,20 @@ const WTPData = (() => {
       e.jobDescription,
       e.payType || 'Regular',
       e.hours,
+      fmtTime(e.clockIn),
+      fmtTime(e.clockOut),
       e.auto_clocked_out ? 'Y' : 'N',
       e.notes || '',
     ]);
-    const escape = v => `"${String(v).replace(/"/g, '""')}"`;
-    const csv    = [headers, ...rows].map(r => r.map(escape).join(',')).join('\r\n');
-    const blob   = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url    = URL.createObjectURL(blob);
-    const link   = document.createElement('a');
-    link.href     = url;
-    link.download = `wtp_timesheets_${new Date().toISOString().slice(0, 10)}.csv`;
+    const totalHours = sorted.reduce((s, e) => s + e.hours, 0);
+    const totalRow   = ['', '', '', '', 'TOTAL', Math.round(totalHours * 100) / 100, '', '', '', ''];
+    const escape     = v => `"${String(v).replace(/"/g, '""')}"`;
+    const csv        = [headers, ...rows, totalRow].map(r => r.map(escape).join(',')).join('\r\n');
+    const blob       = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url        = URL.createObjectURL(blob);
+    const link       = document.createElement('a');
+    link.href        = url;
+    link.download    = `wtp_timesheets_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

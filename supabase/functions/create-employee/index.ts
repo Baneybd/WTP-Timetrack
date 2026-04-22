@@ -98,6 +98,7 @@ serve(async (req) => {
         pay_rate_overtime,
         pay_rate_doubletime,
         pay_rate_holiday,
+        is_active:           true,
       })
       .select()
       .single()

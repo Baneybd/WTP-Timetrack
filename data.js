@@ -33,7 +33,7 @@ const WTPData = (() => {
   function _fromRow(row) {
     return {
       id:              row.id,
-      employeeName:    row.employees?.full_name || row.profiles?.full_name || '',
+      employeeName:    row.profiles?.full_name || '',
       employeeId:      row.employee_id,
       date:            row.date,
       jobName:         row.project_name,
@@ -453,7 +453,7 @@ const WTPData = (() => {
         status:           'completed',
         notes:            notes || null,
       })
-      .select('*, employees(full_name)')
+      .select('*, profiles(full_name)')
       .single();
     if (error) throw error;
     return _fromRow(data);
@@ -481,13 +481,13 @@ const WTPData = (() => {
   async function getActiveShifts() {
     const { data, error } = await _db
       .from('timesheets')
-      .select('*, employees(full_name)')
+      .select('*, profiles(full_name)')
       .eq('status', 'in_progress')
       .order('created_at', { ascending: true });
     if (error) { console.error('WTPData.getActiveShifts:', error.message); return []; }
     return (data || []).map(s => ({
       id:                  s.id,
-      employee_name:       s.employees?.full_name || 'Unknown',
+      employee_name:       s.profiles?.full_name || 'Unknown',
       employee_id:         s.employee_id,
       job_name:            s.project_name,
       job_description:     s.task_description,
@@ -503,7 +503,7 @@ const WTPData = (() => {
   async function getAll() {
     const { data, error } = await _db
       .from('timesheets')
-      .select('*, employees(full_name)')
+      .select('*, profiles(full_name)')
       .eq('status', 'completed')
       .order('date', { ascending: false });
     if (error) { console.error('WTPData.getAll:', error.message); return []; }
@@ -524,7 +524,7 @@ const WTPData = (() => {
       .from('timesheets')
       .update(rowChanges)
       .eq('id', id)
-      .select('*, employees(full_name)')
+      .select('*, profiles(full_name)')
       .single();
     if (error) { console.error('WTPData.update:', error.message); return null; }
     return _fromRow(data);
@@ -544,7 +544,7 @@ const WTPData = (() => {
   async function filterEntries({ startDate, endDate, employee, jobSite, payType } = {}) {
     let query = _db
       .from('timesheets')
-      .select('*, employees(full_name)')
+      .select('*, profiles(full_name)')
       .eq('status', 'completed')
       .order('date', { ascending: false });
     if (startDate) query = query.gte('date', startDate);

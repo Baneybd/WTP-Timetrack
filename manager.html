@@ -731,14 +731,9 @@
           <div class="shift-card__elapsed" id="elapsed-${esc(s.id)}">${fmtElapsed(s.clock_in)}</div>
           <div class="shift-card__footer">
             <button class="btn-clockout-mgr"
-              onclick="openMgrClockout('${esc(s.id)}', ${s.kimai_timesheet_id ? `'${esc(String(s.kimai_timesheet_id))}'` : 'null'}, '${esc(s.employee_name)}')"
+              onclick="openForceClockout('${esc(s.id)}', ${s.kimai_timesheet_id ? `'${esc(String(s.kimai_timesheet_id))}'` : 'null'}, '${esc(s.employee_name)}', '${esc(s.clock_in)}')"
               aria-label="Clock out ${esc(s.employee_name)}">
               Clock Out
-            </button>
-            <button class="btn-clockout-mgr" style="margin-top:.3rem;opacity:.75;"
-              onclick="openForceClockout('${esc(s.id)}', ${s.kimai_timesheet_id ? `'${esc(String(s.kimai_timesheet_id))}'` : 'null'}, '${esc(s.employee_name)}', '${esc(s.clock_in)}')"
-              aria-label="Force clock out ${esc(s.employee_name)} with custom time">
-              Force Clock Out…
             </button>
           </div>
         </div>`).join('')

@@ -145,10 +145,9 @@ const WTPData = (() => {
       .from('employees')
       .update(patch)
       .eq('id', id)
-      .select()
-      .single();
+      .select();
     if (error) { console.error('WTPData.updateEmployee:', error.message); throw error; }
-    return data;
+    return data?.[0] || null;
   }
 
   /** Activate or deactivate an employee account. */

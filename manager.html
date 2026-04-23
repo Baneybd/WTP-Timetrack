@@ -540,6 +540,7 @@
       <label class="modal-label" for="force-co-time">Clock-Out Date &amp; Time</label>
       <input type="datetime-local" id="force-co-time" class="wtp-input" required>
     </div>
+    <p id="force-co-error" style="display:none; color:var(--red-base); font-size:.8125rem; font-weight:500; margin-top:.75rem; padding:.5rem .75rem; background:var(--red-light); border-radius:var(--radius-sm); border-left:3px solid var(--red-base);"></p>
     <div class="modal-actions">
       <button type="button" class="btn-cancel" id="force-co-cancel">Cancel</button>
       <button type="button" class="btn-del-confirm" id="force-co-confirm">Force Clock Out</button>
@@ -735,7 +736,7 @@
               Clock Out
             </button>
             <button class="btn-clockout-mgr" style="margin-top:.3rem;opacity:.75;"
-              onclick="openForceClockout('${esc(s.id)}', ${s.kimai_timesheet_id ? `'${esc(String(s.kimai_timesheet_id))}'` : 'null'}, '${esc(s.employee_name)}')"
+              onclick="openForceClockout('${esc(s.id)}', ${s.kimai_timesheet_id ? `'${esc(String(s.kimai_timesheet_id))}'` : 'null'}, '${esc(s.employee_name)}', '${esc(s.clock_in)}')"
               aria-label="Force clock out ${esc(s.employee_name)} with custom time">
               Force Clock Out…
             </button>
@@ -793,7 +794,7 @@
       </div>` : '';
 
     list.innerHTML = displayed.map(emp => `
-      <div class="mgmt-list-item ${emp.is_active ? '' : 'mgmt-list-item--inactive'}">
+      <div class="mgmt-list-item ${emp.is_active ? '' : 'mgmt-list-item--inactive'}" data-emp-id="${esc(emp.id)}">
         <div class="mgmt-list-item__info">
           <div class="mgmt-list-item__name">${esc(emp.full_name)}
             <span class="badge ${emp.role === 'manager' ? 'badge-Holiday' : 'badge-Regular'}" style="margin-left:.375rem; vertical-align:middle;">
@@ -1182,8 +1183,11 @@
   window.toggleEmployee = async function (id, isActive) {
     try {
       await WTPData.toggleEmployee(id, isActive);
-      await renderEmployeeList();
+      // Immediately remove the card so the list visually updates before re-render
+      const card = document.querySelector(`[data-emp-id="${CSS.escape(id)}"]`);
+      if (card) card.remove();
       showToast(isActive ? 'Employee reactivated.' : 'Employee deactivated.');
+      await renderEmployeeList();
     } catch (err) {
       showToast('Failed to update employee.', true);
     }
@@ -1280,10 +1284,16 @@
   let pendingForceClockout = null;
   const forceCoModal = document.getElementById('force-co-modal');
 
-  window.openForceClockout = function (shiftId, kimaiId, employeeName) {
-    pendingForceClockout = { shiftId, kimaiId, employeeName };
+  // MAX_HOURS must match the DB check constraint ceiling.
+  // Verify with: SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'timesheets_hours_worked_check';
+  const FORCE_CO_MAX_HOURS = 24;
+
+  window.openForceClockout = function (shiftId, kimaiId, employeeName, clockInISO) {
+    pendingForceClockout = { shiftId, kimaiId, employeeName, clockIn: clockInISO };
+    const clockInDisplay = clockInISO ? new Date(clockInISO).toLocaleString() : '—';
     document.getElementById('force-co-preview').innerHTML =
-      `<strong>${esc(employeeName)}</strong>`;
+      `<strong>${esc(employeeName)}</strong><br>Clocked in: ${esc(clockInDisplay)}`;
+    document.getElementById('force-co-error').style.display = 'none';
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
     document.getElementById('force-co-time').value =
@@ -1294,6 +1304,7 @@
   function closeForceCoModal() {
     forceCoModal.classList.add('hidden');
     pendingForceClockout = null;
+    document.getElementById('force-co-error').style.display = 'none';
   }
 
   document.getElementById('force-co-close').addEventListener('click', closeForceCoModal);
@@ -1303,7 +1314,34 @@
   document.getElementById('force-co-confirm').addEventListener('click', async () => {
     if (!pendingForceClockout) return;
     const timeVal = document.getElementById('force-co-time').value;
-    if (!timeVal) { showToast('Please set a clock-out time.', true); return; }
+    const errEl   = document.getElementById('force-co-error');
+    errEl.style.display = 'none';
+
+    if (!timeVal) {
+      errEl.textContent = 'Please set a clock-out time.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    // Client-side validation — block invalid values before they reach the DB
+    if (pendingForceClockout.clockIn) {
+      const clockInTime  = new Date(pendingForceClockout.clockIn);
+      const clockOutTime = new Date(timeVal);
+      const rawHours     = (clockOutTime - clockInTime) / 3600000;
+
+      if (rawHours <= 0) {
+        errEl.textContent = `Clock-out time must be after clock-in (${clockInTime.toLocaleString()}).`;
+        errEl.style.display = 'block';
+        return;
+      }
+      if (rawHours > FORCE_CO_MAX_HOURS) {
+        const maxTime = new Date(clockInTime.getTime() + FORCE_CO_MAX_HOURS * 3600000).toLocaleString();
+        errEl.textContent = `${rawHours.toFixed(1)} hrs exceeds the ${FORCE_CO_MAX_HOURS}-hr limit. Enter a time on or before ${maxTime}.`;
+        errEl.style.display = 'block';
+        return;
+      }
+    }
+
     const btn = document.getElementById('force-co-confirm');
     btn.disabled = true; btn.textContent = 'Processing…';
     try {
@@ -1314,7 +1352,8 @@
       await Promise.all([renderActiveShifts(), loadData(), renderAnalytics()]);
       showToast(`${name} force clocked out — ${result.hours} hr${result.hours === 1 ? '' : 's'} logged.`);
     } catch (err) {
-      showToast(err.message || 'Failed to force clock out.', true);
+      errEl.textContent = err.message || 'Failed to force clock out.';
+      errEl.style.display = 'block';
     } finally {
       btn.disabled = false; btn.textContent = 'Force Clock Out';
     }

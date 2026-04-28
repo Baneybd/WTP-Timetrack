@@ -132,12 +132,9 @@ const WTPData = (() => {
     return data || [];
   }
 
-  /** Update employee fields (name, pay rates, role). */
+  /** Update employee fields (name, role). */
   async function updateEmployee(id, changes) {
-    const allowed = [
-      'full_name', 'pay_rate_regular', 'pay_rate_overtime',
-      'pay_rate_doubletime', 'pay_rate_holiday', 'role',
-    ];
+    const allowed = ['full_name', 'role'];
     const patch = {};
     allowed.forEach(k => { if (changes[k] !== undefined) patch[k] = changes[k]; });
 

@@ -363,37 +363,10 @@
       </div>
 
       <div id="emp-add-fields">
-        <div class="modal-row-grid" style="margin-top:1rem;">
-          <div class="modal-row" style="margin-bottom:0;">
-            <label class="modal-label" for="emp-email">Email</label>
-            <input type="email" id="emp-email" class="wtp-input" placeholder="jane@company.com">
-          </div>
-          <div class="modal-row" style="margin-bottom:0;">
-            <label class="modal-label" for="emp-password">Password (min 8 chars)</label>
-            <input type="password" id="emp-password" class="wtp-input" placeholder="••••••••" minlength="8">
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:1rem;">
-        <div class="modal-label" style="margin-bottom:.5rem;">Pay Rates ($/hr)</div>
-        <div class="modal-row-grid">
-          <div class="modal-row" style="margin-bottom:0;">
-            <label class="modal-label" for="emp-rate-reg">Regular</label>
-            <input type="number" id="emp-rate-reg" class="wtp-input" value="25" min="0" step="0.01">
-          </div>
-          <div class="modal-row" style="margin-bottom:0;">
-            <label class="modal-label" for="emp-rate-ot">Overtime</label>
-            <input type="number" id="emp-rate-ot" class="wtp-input" value="37.50" min="0" step="0.01">
-          </div>
-          <div class="modal-row" style="margin-bottom:0; margin-top:.75rem;">
-            <label class="modal-label" for="emp-rate-dt">Double Time</label>
-            <input type="number" id="emp-rate-dt" class="wtp-input" value="50" min="0" step="0.01">
-          </div>
-          <div class="modal-row" style="margin-bottom:0; margin-top:.75rem;">
-            <label class="modal-label" for="emp-rate-hol">Holiday</label>
-            <input type="number" id="emp-rate-hol" class="wtp-input" value="50" min="0" step="0.01">
-          </div>
+        <div class="modal-row" style="margin-top:1rem;">
+          <label class="modal-label" for="emp-email">Email</label>
+          <input type="email" id="emp-email" class="wtp-input" placeholder="jane@company.com">
+          <p style="margin-top:.375rem; font-size:.75rem; color:var(--muted);">An invite link will be emailed so they can set their own password.</p>
         </div>
       </div>
 
@@ -802,7 +775,7 @@
             </span>
             ${!emp.is_active ? '<span style="font-size:.7rem; color:var(--muted); font-weight:600; margin-left:.25rem;">(inactive)</span>' : ''}
           </div>
-          <div class="mgmt-list-item__meta">${esc(emp.email)} &bull; Reg $${parseFloat(emp.pay_rate_regular).toFixed(2)}/hr &bull; OT $${parseFloat(emp.pay_rate_overtime).toFixed(2)}/hr</div>
+          <div class="mgmt-list-item__meta">${esc(emp.email)}${emp.invite_status === 'pending' ? ' &bull; <span style="color:#d97706;font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;">Pending invite</span>' : ''}</div>
         </div>
         <div class="mgmt-list-item__actions">
           <button class="btn-sm btn-sm-blue" onclick="openEditEmployee('${esc(emp.id)}')" aria-label="Edit ${esc(emp.full_name)}">Edit</button>
@@ -1062,12 +1035,8 @@
     document.getElementById('emp-modal-mode').value = 'add';
     document.getElementById('emp-modal-id').value = '';
     document.getElementById('emp-add-fields').style.display = '';
-    document.getElementById('emp-save').textContent = 'Add Employee';
+    document.getElementById('emp-save').textContent = 'Send Invite';
     document.getElementById('emp-error').style.display = 'none';
-    document.getElementById('emp-rate-reg').value = '25';
-    document.getElementById('emp-rate-ot').value  = '37.50';
-    document.getElementById('emp-rate-dt').value  = '50';
-    document.getElementById('emp-rate-hol').value = '50';
     empModal.classList.remove('hidden');
     document.getElementById('emp-fullname').focus();
   }
@@ -1080,10 +1049,6 @@
     document.getElementById('emp-modal-id').value = id;
     document.getElementById('emp-fullname').value = emp.full_name;
     document.getElementById('emp-role').value = emp.role;
-    document.getElementById('emp-rate-reg').value = emp.pay_rate_regular;
-    document.getElementById('emp-rate-ot').value  = emp.pay_rate_overtime;
-    document.getElementById('emp-rate-dt').value  = emp.pay_rate_doubletime;
-    document.getElementById('emp-rate-hol').value = emp.pay_rate_holiday;
     document.getElementById('emp-add-fields').style.display = 'none';
     document.getElementById('emp-save').textContent = 'Save Changes';
     document.getElementById('emp-error').style.display = 'none';
@@ -1107,21 +1072,15 @@
 
     const fullName = document.getElementById('emp-fullname').value.trim();
     const role     = document.getElementById('emp-role').value;
-    const rateReg  = parseFloat(document.getElementById('emp-rate-reg').value);
-    const rateOt   = parseFloat(document.getElementById('emp-rate-ot').value);
-    const rateDt   = parseFloat(document.getElementById('emp-rate-dt').value);
-    const rateHol  = parseFloat(document.getElementById('emp-rate-hol').value);
 
     if (!fullName) { errEl.textContent = 'Full name is required.'; errEl.style.display = 'block'; return; }
 
     if (mode === 'add') {
-      const email    = document.getElementById('emp-email').value.trim();
-      const password = document.getElementById('emp-password').value;
-      if (!email)              { errEl.textContent = 'Email is required.';                      errEl.style.display = 'block'; return; }
-      if (password.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; errEl.style.display = 'block'; return; }
+      const email = document.getElementById('emp-email').value.trim();
+      if (!email) { errEl.textContent = 'Email is required.'; errEl.style.display = 'block'; return; }
 
       saveBtn.disabled = true;
-      saveBtn.textContent = 'Creating…';
+      saveBtn.textContent = 'Sending invite…';
       try {
         const { data: { session: authSession } } = await WTPAuth._supabase.auth.getSession();
         if (!authSession) throw new Error('Not authenticated. Please sign in again.');
@@ -1133,40 +1092,29 @@
             'apikey': SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({
-            full_name:            fullName,
+            full_name: fullName,
             email,
-            password,
             role,
-            pay_rate_regular:    rateReg,
-            pay_rate_overtime:   rateOt,
-            pay_rate_doubletime: rateDt,
-            pay_rate_holiday:    rateHol,
+            redirect_to: window.location.origin + '/set-password.html',
           }),
         });
         const result = await resp.json();
-        if (!resp.ok) throw new Error(result.error || 'Failed to create employee.');
+        if (!resp.ok) throw new Error(result.error || 'Failed to send invite.');
         closeEmpModal();
         await renderEmployeeList();
-        showToast(`${fullName} added successfully!`);
+        showToast(`Invite sent to ${email}!`);
       } catch (err) {
-        errEl.textContent = err.message || 'Failed to create employee.';
+        errEl.textContent = err.message || 'Failed to send invite.';
         errEl.style.display = 'block';
       } finally {
         saveBtn.disabled = false;
-        saveBtn.textContent = 'Add Employee';
+        saveBtn.textContent = 'Send Invite';
       }
     } else {
       saveBtn.disabled = true;
       saveBtn.textContent = 'Saving…';
       try {
-        await WTPData.updateEmployee(empId, {
-          full_name:            fullName,
-          role,
-          pay_rate_regular:    rateReg,
-          pay_rate_overtime:   rateOt,
-          pay_rate_doubletime: rateDt,
-          pay_rate_holiday:    rateHol,
-        });
+        await WTPData.updateEmployee(empId, { full_name: fullName, role });
         closeEmpModal();
         await renderEmployeeList();
         showToast('Employee updated.');
@@ -1500,20 +1448,16 @@
     headerName.textContent = session.employee.full_name;
     mainContent.style.display = '';
 
-    // Default filter to current Mon–Sun on every fresh page load
+    // Default filter to last 14 days on every fresh page load
     (function () {
-      const t   = new Date();
-      const dow = t.getDay(); // 0=Sun
-      const mon = new Date(t);
-      mon.setDate(t.getDate() - (dow === 0 ? 6 : dow - 1));
-      mon.setHours(0, 0, 0, 0);
-      const sun = new Date(mon);
-      sun.setDate(mon.getDate() + 6);
       const fmt = d => d.getFullYear() + '-' +
         String(d.getMonth() + 1).padStart(2, '0') + '-' +
         String(d.getDate()).padStart(2, '0');
-      fStart.value = fmt(mon);
-      fEnd.value   = fmt(sun);
+      const today = new Date();
+      const from  = new Date(today);
+      from.setDate(today.getDate() - 13);
+      fStart.value = fmt(from);
+      fEnd.value   = fmt(today);
     })();
 
     // Load everything in parallel

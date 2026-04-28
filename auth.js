@@ -22,6 +22,17 @@ const WTPAuth = (() => {
       .single();
     if (empErr) throw new Error('No employee profile found. Contact your manager.');
 
+    // Check active status against the employees table
+    const { data: empRow } = await _supabase
+      .from('employees')
+      .select('is_active')
+      .eq('id', data.user.id)
+      .maybeSingle();
+    if (empRow && empRow.is_active === false) {
+      await _supabase.auth.signOut();
+      throw new Error('Your account has been deactivated. Contact your manager.');
+    }
+
     return { user: data.user, employee: emp };
   }
 

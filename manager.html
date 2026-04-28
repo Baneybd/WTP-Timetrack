@@ -1101,7 +1101,7 @@
             full_name: fullName,
             email,
             role,
-            redirect_to: window.location.origin + '/set-password.html',
+            redirect_to: new URL('set-password.html', window.location.href).href,
           }),
         });
         const result = await resp.json();

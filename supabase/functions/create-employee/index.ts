@@ -61,7 +61,7 @@ serve(async (req) => {
     )
 
     // Send invite email — employee sets their own password via the link
-    const inviteRedirect = redirect_to || `${Deno.env.get('APP_URL') || ''}/set-password.html`
+    const inviteRedirect = redirect_to || 'https://baneybd.github.io/WTP-Timetrack/set-password.html'
     const { data: newUser, error: authError } = await adminClient.auth.admin.inviteUserByEmail(
       email,
       {

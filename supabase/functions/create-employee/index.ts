@@ -76,7 +76,7 @@ serve(async (req) => {
     // but this explicit upsert runs first and must succeed.
     const { error: profileUpsertErr } = await adminClient
       .from('profiles')
-      .upsert({ id: newUser.user.id, full_name, role }, { onConflict: 'id' })
+      .upsert({ id: newUser.user.id, full_name, role, email }, { onConflict: 'id' })
     if (profileUpsertErr) {
       await adminClient.auth.admin.deleteUser(newUser.user.id)
       throw new Error(`Failed to set profile role: ${profileUpsertErr.message}`)

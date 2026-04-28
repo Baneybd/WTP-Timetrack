@@ -759,6 +759,12 @@
       return;
     }
 
+    // Active employees first (alphabetical), inactive always at the bottom
+    displayed.sort((a, b) => {
+      if (!!a.is_active !== !!b.is_active) return a.is_active ? -1 : 1;
+      return a.full_name.localeCompare(b.full_name);
+    });
+
     const toggleRow = hasInactive || showInactiveEmployees ? `
       <div style="padding:.5rem 1.375rem; border-top:1px solid var(--border);">
         <button class="btn-show-archived" onclick="toggleInactiveEmployees()">

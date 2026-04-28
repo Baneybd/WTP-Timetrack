@@ -70,6 +70,9 @@ serve(async (req) => {
       }
     )
     if (authError) throw authError
+    if (!newUser?.user?.id) {
+      throw new Error('Invite failed: user may already exist, or email could not be sent.')
+    }
 
     // Set profiles.role explicitly — fatal if this fails, since it controls dashboard access.
     // The INSERT trigger on employees (fix_role_sync_on_insert.sql) provides a second guarantee,

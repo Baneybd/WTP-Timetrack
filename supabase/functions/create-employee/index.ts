@@ -60,19 +60,23 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Send invite email — employee sets their own password via the link
+    // Generate an invite link without sending email — manager copies and shares it directly.
+    // This avoids Supabase free-tier email rate limits entirely.
     const inviteRedirect = redirect_to || 'https://baneybd.github.io/WTP-Timetrack/set-password.html'
-    const { data: newUser, error: authError } = await adminClient.auth.admin.inviteUserByEmail(
+    const { data: linkData, error: authError } = await adminClient.auth.admin.generateLink({
+      type: 'invite',
       email,
-      {
+      options: {
         redirectTo: inviteRedirect,
         data: { full_name, role },
-      }
-    )
+      },
+    })
     if (authError) throw authError
-    if (!newUser?.user?.id) {
-      throw new Error('Invite failed: user may already exist, or email could not be sent.')
+    if (!linkData?.user?.id) {
+      throw new Error('Failed to generate invite link. The email may already have an account.')
     }
+    const newUser = linkData
+    const inviteLink = linkData.properties?.action_link ?? null
 
     // Set profiles.role explicitly — fatal if this fails, since it controls dashboard access.
     // The INSERT trigger on employees (fix_role_sync_on_insert.sql) provides a second guarantee,
@@ -104,7 +108,7 @@ serve(async (req) => {
       throw empError
     }
 
-    return new Response(JSON.stringify(employee), {
+    return new Response(JSON.stringify({ ...employee, invite_link: inviteLink }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })
   } catch (error) {

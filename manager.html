@@ -333,6 +333,32 @@
   </div>
 </div>
 
+<!-- ── Invite Link Modal ── -->
+<div class="modal-overlay hidden" id="invite-link-modal" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Share Invite Link</h2>
+      <button class="modal-close" id="invite-link-close" aria-label="Close modal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <p style="font-size:.875rem; color:var(--muted); margin-bottom:1rem;" id="invite-link-sub">
+      Send this link to the employee — they'll use it to set their password and activate their account. The link expires after 24 hours.
+    </p>
+    <div style="display:flex; gap:.5rem; align-items:stretch;">
+      <input type="text" id="invite-link-input" class="wtp-input" readonly
+        style="font-size:.75rem; font-family:monospace; flex:1; min-width:0; cursor:text;">
+      <button class="btn-save" id="invite-link-copy" style="white-space:nowrap; flex-shrink:0;">Copy Link</button>
+    </div>
+    <p id="invite-link-copied" style="display:none; font-size:.75rem; color:#059669; font-weight:600; margin-top:.5rem;">✓ Copied to clipboard</p>
+    <div class="modal-actions" style="margin-top:1.25rem;">
+      <button type="button" class="btn-save" id="invite-link-done" style="width:100%;">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Add Employee Modal ──-->
 <div class="modal-overlay hidden" id="emp-modal" role="dialog" aria-modal="true" aria-labelledby="emp-modal-title">
   <div class="modal-box" style="max-width:560px;">
@@ -1108,7 +1134,11 @@
         if (!resp.ok) throw new Error(result.error || 'Failed to send invite.');
         closeEmpModal();
         await renderEmployeeList();
-        showToast(`Invite sent to ${email}!`);
+        if (result.invite_link) {
+          showInviteLink(fullName, email, result.invite_link);
+        } else {
+          showToast(`${fullName} added. Invite link unavailable — check Supabase logs.`, true);
+        }
       } catch (err) {
         errEl.textContent = err.message || 'Failed to send invite.';
         errEl.style.display = 'block';
@@ -1146,6 +1176,41 @@
       showToast('Failed to update employee.', true);
     }
   };
+
+  // ── Invite Link Modal ──
+
+  function showInviteLink(name, email, link) {
+    document.getElementById('invite-link-sub').textContent =
+      `Send this link to ${name} (${email}) — they'll use it to set their password and activate their account. The link expires after 24 hours.`;
+    const input = document.getElementById('invite-link-input');
+    input.value = link;
+    document.getElementById('invite-link-copied').style.display = 'none';
+    document.getElementById('invite-link-modal').classList.remove('hidden');
+    input.select();
+  }
+
+  function closeInviteLinkModal() {
+    document.getElementById('invite-link-modal').classList.add('hidden');
+  }
+
+  document.getElementById('invite-link-close').addEventListener('click', closeInviteLinkModal);
+  document.getElementById('invite-link-done').addEventListener('click', closeInviteLinkModal);
+  document.getElementById('invite-link-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('invite-link-modal')) closeInviteLinkModal();
+  });
+
+  document.getElementById('invite-link-copy').addEventListener('click', async () => {
+    const input = document.getElementById('invite-link-input');
+    try {
+      await navigator.clipboard.writeText(input.value);
+    } catch {
+      input.select();
+      document.execCommand('copy');
+    }
+    const copied = document.getElementById('invite-link-copied');
+    copied.style.display = 'block';
+    setTimeout(() => { copied.style.display = 'none'; }, 2500);
+  });
 
   // ── Job Site Modal ──
 
@@ -1440,6 +1505,7 @@
       closePastEntryModal();
       closeMgrClockoutModal();
       closeForceCoModal();
+      closeInviteLinkModal();
     }
   });
 

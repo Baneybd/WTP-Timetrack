@@ -620,9 +620,12 @@ const WTPData = (() => {
 
   /**
    * Export entries to CSV. Sorted by date ascending.
+   * @param {Array}  entries
+   * @param {string} [startDate]  YYYY-MM-DD — used in filename
+   * @param {string} [endDate]    YYYY-MM-DD — used in filename
    * Columns: Date, Employee, Job Site, Activity, Pay Type, Hours, Auto Clocked Out, Notes
    */
-  function exportToCSV(entries) {
+  function exportToCSV(entries, startDate, endDate) {
     const sorted  = entries.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     const fmtTime = iso => iso ? iso.split('T')[1]?.slice(0, 5) || '' : '';
     const headers = ['Date', 'Employee', 'Job Site', 'Activity', 'Pay Type', 'Hours', 'Clock In', 'Clock Out', 'Auto Clocked Out', 'Notes'];
@@ -642,11 +645,20 @@ const WTPData = (() => {
     const totalRow   = ['', '', '', '', 'TOTAL', Math.round(totalHours * 100) / 100, '', '', '', ''];
     const escape     = v => `"${String(v).replace(/"/g, '""')}"`;
     const csv        = [headers, ...rows, totalRow].map(r => r.map(escape).join(',')).join('\r\n');
-    const blob       = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url        = URL.createObjectURL(blob);
-    const link       = document.createElement('a');
-    link.href        = url;
-    link.download    = `wtp_timesheets_${new Date().toISOString().slice(0, 10)}.csv`;
+
+    // Build filename from the active filter range, falling back to entry dates,
+    // then today as a last resort.
+    const from = startDate || sorted[0]?.date;
+    const to   = endDate   || sorted[sorted.length - 1]?.date;
+    const filename = from && to && from !== to
+      ? `wtp_timesheets_${from}_to_${to}.csv`
+      : `wtp_timesheets_${from || new Date().toISOString().slice(0, 10)}.csv`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

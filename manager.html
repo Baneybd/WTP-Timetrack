@@ -951,7 +951,7 @@
 
   function doExport() {
     if (currentEntries.length === 0) { showToast('No entries to export.', true); return; }
-    WTPData.exportToCSV(currentEntries);
+    WTPData.exportToCSV(currentEntries, fStart.value || undefined, fEnd.value || undefined);
     showToast(`CSV downloaded — ${currentEntries.length} entr${currentEntries.length === 1 ? 'y' : 'ies'}.`);
   }
 

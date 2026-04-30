@@ -65,6 +65,15 @@ const WTPData = (() => {
     return data || [];
   }
 
+  /** Rename a job site. */
+  async function updateJobSite(id, name) {
+    const { error } = await _db
+      .from('job_sites')
+      .update({ name: name.trim() })
+      .eq('id', id);
+    if (error) { console.error('WTPData.updateJobSite:', error.message); throw error; }
+  }
+
   /** Archive or unarchive a job site. */
   async function archiveJobSite(id, archived) {
     const { error } = await _db
@@ -647,7 +656,7 @@ const WTPData = (() => {
   // ─── Public API ───
   return {
     // Job sites
-    getJobSites, addJobSite, toggleJobSite, archiveJobSite,
+    getJobSites, addJobSite, updateJobSite, toggleJobSite, archiveJobSite,
     // Kimai config
     getKimaiConfig, saveKimaiConfig,
     // Employees

@@ -409,7 +409,7 @@
   </div>
 </div>
 
-<!-- ── Add Job Site Modal ─── -->
+<!-- ── Add / Edit Job Site Modal ─── -->
 <div class="modal-overlay hidden" id="jobsite-modal" role="dialog" aria-modal="true" aria-labelledby="jobsite-modal-title">
   <div class="modal-box" style="max-width:420px;">
     <div class="modal-header">
@@ -421,6 +421,8 @@
       </button>
     </div>
     <form id="jobsite-form" novalidate>
+      <input type="hidden" id="jobsite-modal-mode" value="add">
+      <input type="hidden" id="jobsite-modal-id">
       <div class="modal-row">
         <label class="modal-label" for="jobsite-name">Job Site Name</label>
         <input type="text" id="jobsite-name" class="wtp-input" placeholder="e.g. River Ridge" required>
@@ -843,38 +845,31 @@
       return;
     }
 
-    // Active first, then inactive, then archived
+    // Non-archived first (alphabetical), archived at the bottom
     const sorted = [...cachedJobSites].sort((a, b) => {
       if (!!a.archived !== !!b.archived) return a.archived ? 1 : -1;
-      if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
 
     list.innerHTML = sorted.map(j => `
-      <div class="mgmt-list-item ${j.archived ? 'mgmt-list-item--archived' : (j.is_active ? '' : 'mgmt-list-item--inactive')}">
+      <div class="mgmt-list-item ${j.archived ? 'mgmt-list-item--archived' : ''}">
         <div class="mgmt-list-item__info">
           <div class="mgmt-list-item__name">${esc(j.name)}
-            ${j.archived ? '<span class="badge-archived">Archived</span>' : (!j.is_active ? '<span style="font-size:.7rem; color:var(--muted); font-weight:600; margin-left:.25rem;">(inactive)</span>' : '')}
+            ${j.archived ? '<span class="badge-archived">Archived</span>' : ''}
           </div>
         </div>
         <div class="mgmt-list-item__actions">
           ${!j.archived ? `
-            <button class="btn-sm ${j.is_active ? 'btn-sm-danger' : 'btn-sm-success'}"
-              onclick="toggleJobSite('${esc(j.id)}', ${!j.is_active})"
-              aria-label="${j.is_active ? 'Deactivate' : 'Reactivate'} ${esc(j.name)}">
-              ${j.is_active ? 'Deactivate' : 'Reactivate'}
-            </button>
+            <button class="btn-sm btn-sm-blue"
+              onclick="openEditJobSite('${esc(j.id)}')"
+              aria-label="Edit ${esc(j.name)}">Edit</button>
             <button class="btn-sm btn-sm-danger"
               onclick="archiveJobSite('${esc(j.id)}')"
-              aria-label="Archive ${esc(j.name)}">
-              Archive
-            </button>
+              aria-label="Archive ${esc(j.name)}">Archive</button>
           ` : `
             <button class="btn-sm btn-sm-success"
               onclick="unarchiveJobSite('${esc(j.id)}')"
-              aria-label="Unarchive ${esc(j.name)}">
-              Unarchive
-            </button>
+              aria-label="Unarchive ${esc(j.name)}">Unarchive</button>
           `}
         </div>
       </div>`).join('') +
@@ -1221,48 +1216,64 @@
   document.getElementById('jobsite-close').addEventListener('click', closeJobsiteModal);
   document.getElementById('jobsite-cancel').addEventListener('click', closeJobsiteModal);
   jobsiteModal.addEventListener('click', e => { if (e.target === jobsiteModal) closeJobsiteModal(); });
+
   document.getElementById('add-jobsite-btn').addEventListener('click', () => {
     jobsiteForm.reset();
+    document.getElementById('jobsite-modal-mode').value = 'add';
+    document.getElementById('jobsite-modal-id').value = '';
+    document.getElementById('jobsite-modal-title').textContent = 'Add Job Site';
+    document.getElementById('jobsite-save').textContent = 'Add Job Site';
     document.getElementById('jobsite-error').style.display = 'none';
     jobsiteModal.classList.remove('hidden');
     document.getElementById('jobsite-name').focus();
   });
 
+  window.openEditJobSite = function (id) {
+    const site = cachedJobSites.find(j => j.id === id);
+    if (!site) return;
+    document.getElementById('jobsite-modal-mode').value = 'edit';
+    document.getElementById('jobsite-modal-id').value = id;
+    document.getElementById('jobsite-modal-title').textContent = 'Edit Job Site';
+    document.getElementById('jobsite-name').value = site.name;
+    document.getElementById('jobsite-save').textContent = 'Save Changes';
+    document.getElementById('jobsite-error').style.display = 'none';
+    jobsiteModal.classList.remove('hidden');
+    document.getElementById('jobsite-name').focus();
+  };
+
   jobsiteForm.addEventListener('submit', async function (e) {
     e.preventDefault();
     const errEl   = document.getElementById('jobsite-error');
     const saveBtn = document.getElementById('jobsite-save');
+    const mode    = document.getElementById('jobsite-modal-mode').value;
+    const siteId  = document.getElementById('jobsite-modal-id').value;
     const name    = document.getElementById('jobsite-name').value.trim();
     errEl.style.display = 'none';
 
     if (!name) { errEl.textContent = 'Job site name is required.'; errEl.style.display = 'block'; return; }
 
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Adding…';
+    saveBtn.textContent = mode === 'edit' ? 'Saving…' : 'Adding…';
     try {
-      await WTPData.addJobSite(name);
-      closeJobsiteModal();
-      await renderJobSiteList();
-      // (no Kimai mapping table to refresh)
-      showToast(`"${name}" added to job sites.`);
+      if (mode === 'edit') {
+        await WTPData.updateJobSite(siteId, name);
+        closeJobsiteModal();
+        await renderJobSiteList();
+        showToast(`Job site renamed to "${name}".`);
+      } else {
+        await WTPData.addJobSite(name);
+        closeJobsiteModal();
+        await renderJobSiteList();
+        showToast(`"${name}" added to job sites.`);
+      }
     } catch (err) {
-      errEl.textContent = err.message?.includes('unique') ? 'A job site with that name already exists.' : (err.message || 'Failed to add job site.');
+      errEl.textContent = err.message?.includes('unique') ? 'A job site with that name already exists.' : (err.message || 'Failed to save job site.');
       errEl.style.display = 'block';
     } finally {
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Add Job Site';
+      saveBtn.textContent = mode === 'edit' ? 'Save Changes' : 'Add Job Site';
     }
   });
-
-  window.toggleJobSite = async function (id, isActive) {
-    try {
-      await WTPData.toggleJobSite(id, isActive);
-      await renderJobSiteList();
-      showToast(isActive ? 'Job site reactivated.' : 'Job site deactivated.');
-    } catch (err) {
-      showToast('Failed to update job site.', true);
-    }
-  };
 
   // ── Manager Clock-Out Modal ──
 

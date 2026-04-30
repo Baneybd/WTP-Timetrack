@@ -8,9 +8,12 @@
 create or replace function sync_employee_role_to_profile_on_insert()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, role)
-  values (NEW.id, NEW.full_name, NEW.role)
-  on conflict (id) do update set role = NEW.role;
+  insert into public.profiles (id, full_name, role, email)
+  values (NEW.id, NEW.full_name, NEW.role, NEW.email)
+  on conflict (id) do update set
+    role      = EXCLUDED.role,
+    full_name = EXCLUDED.full_name,
+    email     = EXCLUDED.email;
   return NEW;
 end;
 $$ language plpgsql security definer;

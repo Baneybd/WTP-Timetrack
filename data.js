@@ -264,6 +264,130 @@ const WTPData = (() => {
   }
 
   /**
+   * Switch job while clocked in (split-shift).
+   * Completes the current in_progress timesheet row, immediately creates a new
+   * one with the new job/activity, and updates localStorage — timer resets to 0.
+   *
+   * @param {string} employeeId
+   * @param {string} newJobName
+   * @param {string} newActivityName
+   * @param {string} payType  — inherited from the active shift; pass explicitly to override
+   * @returns {object} newShift — the new localStorage shift object
+   */
+  async function switchJob(employeeId, newJobName, newActivityName, payType = 'Regular') {
+    const raw = localStorage.getItem(CLOCK_STORAGE.activeShift);
+    if (!raw) throw new Error('No active shift found');
+    const shift = JSON.parse(raw);
+
+    const now         = new Date();
+    const clockInTime = new Date(shift.clockIn);
+    const rawHours    = (now - clockInTime) / 3600000;
+    const hours       = Math.max(0.25, Math.round(rawHours * 4) / 4);
+
+    // 1. Stop Kimai for the old entry (non-fatal)
+    if (shift.kimaiId) {
+      try {
+        const session = await _db.auth.getSession();
+        await fetch(KIMAI_EDGE_FN, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + session.data.session.access_token,
+            'Content-Type':  'application/json',
+          },
+          body: JSON.stringify({ action: 'stop', timesheetId: shift.kimaiId }),
+        });
+      } catch (e) {
+        console.warn('Kimai stop on job switch failed (non-fatal):', e.message);
+      }
+    }
+
+    // 2. Complete the old Supabase row
+    const { error: completeErr } = await _db.from('timesheets').update({
+      hours_worked: hours,
+      end_time:     now.toTimeString().slice(0, 8),
+      status:       'completed',
+    }).eq('id', shift.timesheetId);
+    if (completeErr) throw completeErr;
+
+    // 3. Insert the new in_progress row
+    const { data: newEntry, error: insertErr } = await _db
+      .from('timesheets')
+      .insert({
+        employee_id:      employeeId,
+        date:             now.toISOString().slice(0, 10),
+        project_name:     newJobName,
+        task_description: newActivityName,
+        pay_type:         payType,
+        start_time:       now.toTimeString().slice(0, 8),
+        hours_worked:     0.01,
+        status:           'in_progress',
+      })
+      .select()
+      .single();
+    if (insertErr) throw insertErr;
+
+    // 4. Save new shift to localStorage — timer resets from now
+    const newShift = {
+      timesheetId:  newEntry.id,
+      kimaiId:      null,
+      clockIn:      now.toISOString(),
+      jobName:      newJobName,
+      activityName: newActivityName,
+      payType,
+    };
+    localStorage.setItem(CLOCK_STORAGE.activeShift, JSON.stringify(newShift));
+
+    // 5. Start Kimai for the new entry (non-blocking)
+    const kimaiCfg        = await getKimaiConfig();
+    const kimaiProjectId  = kimaiCfg?.default_project_id  || null;
+    const kimaiActivityId = kimaiCfg?.default_activity_id || null;
+
+    if (kimaiProjectId || kimaiActivityId) {
+      try {
+        const begin =
+          now.getFullYear() + '-' +
+          String(now.getMonth() + 1).padStart(2, '0') + '-' +
+          String(now.getDate()).padStart(2, '0') + 'T' +
+          String(now.getHours()).padStart(2, '0') + ':' +
+          String(now.getMinutes()).padStart(2, '0') + ':' +
+          String(now.getSeconds()).padStart(2, '0');
+
+        const session    = await _db.auth.getSession();
+        const kimaiResp  = await fetch(KIMAI_EDGE_FN, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + session.data.session.access_token,
+            'Content-Type':  'application/json',
+          },
+          body: JSON.stringify({
+            action:  'start',
+            payload: {
+              begin,
+              project:  kimaiProjectId,
+              activity: kimaiActivityId,
+              tags:     payType,
+              billable: true,
+            },
+          }),
+        });
+
+        if (kimaiResp.ok) {
+          const kimaiEntry = await kimaiResp.json();
+          newShift.kimaiId = kimaiEntry.id;
+          localStorage.setItem(CLOCK_STORAGE.activeShift, JSON.stringify(newShift));
+          await _db.from('timesheets')
+            .update({ kimai_timesheet_id: kimaiEntry.id })
+            .eq('id', newEntry.id);
+        }
+      } catch (kimaiErr) {
+        console.warn('Kimai clock-in on job switch failed (non-fatal):', kimaiErr.message);
+      }
+    }
+
+    return newShift;
+  }
+
+  /**
    * Clock the current employee out.
    * Reads active shift from localStorage, attempts Kimai stop for authoritative
    * duration, updates Supabase row to completed.
@@ -674,7 +798,7 @@ const WTPData = (() => {
     // Employees
     getEmployees, updateEmployee, toggleEmployee,
     // Clock in/out (Kimai-backed, offline-aware)
-    clockIn, clockOut, getActiveShift, syncPendingClockOut,
+    clockIn, switchJob, clockOut, getActiveShift, syncPendingClockOut,
     // Active shifts (manager)
     getMyActiveShift, getActiveShifts, managerClockOut,
     // Timesheets

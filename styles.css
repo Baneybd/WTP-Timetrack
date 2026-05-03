@@ -1037,6 +1037,13 @@ body {
   box-shadow: 0 4px 20px rgba(220,38,38,.35), inset 0 1px 0 rgba(255,255,255,.12);
 }
 .clock-action-btn--out:hover { opacity: .92; box-shadow: 0 6px 24px rgba(220,38,38,.45); }
+.clock-action-btn--switch {
+  background: var(--wtp-purple-tint);
+  color: var(--wtp-purple-600);
+  border: 1.5px solid var(--wtp-purple-100);
+  box-shadow: none;
+}
+.clock-action-btn--switch:hover { opacity: .85; background: var(--wtp-purple-50); }
 
 .clock-elapsed {
   font-size: 3rem;

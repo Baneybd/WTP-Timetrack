@@ -147,11 +147,12 @@
   'use strict';
 
   // ── State ──
-  let currentEmployee = null;
-  let userId          = null; // auth user UUID — used as employee_id in timesheets
-  let activeShift     = null;
-  let elapsedTimer    = null;
-  let jobSites        = [];
+  let currentEmployee   = null;
+  let userId            = null; // auth user UUID — used as employee_id in timesheets
+  let activeShift       = null;
+  let elapsedTimer      = null;
+  let jobSites          = [];
+  let clockinModalMode  = 'clockin'; // 'clockin' | 'switch'
 
   // ── DOM refs ──
   const mainContent   = document.getElementById('main-content');
@@ -258,6 +259,13 @@
       </div>
       <div class="clock-elapsed" id="elapsed-display">${formatElapsed(getSeconds())}</div>
       <div class="clock-elapsed-label">Time Elapsed</div>
+      <button class="clock-action-btn clock-action-btn--switch" id="do-switchjob-btn" aria-label="Switch Job">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/>
+          <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>
+        </svg>
+        Switch Job
+      </button>
       <button class="clock-action-btn clock-action-btn--out" id="do-clockout-btn" aria-label="Clock Out">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="10"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/>
@@ -271,6 +279,7 @@
       display.textContent = formatElapsed(getSeconds());
     }, 1000);
 
+    document.getElementById('do-switchjob-btn').addEventListener('click', () => openClockinModal('switch'));
     document.getElementById('do-clockout-btn').addEventListener('click', doClockedOut);
   }
 
@@ -278,9 +287,10 @@
     if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
   }
 
-  // ── Clock In modal ──
+  // ── Clock In / Switch Job modal ──
 
-  async function openClockinModal() {
+  async function openClockinModal(mode = 'clockin') {
+    clockinModalMode = mode;
     clockinError.style.display = 'none';
     clockinForm.reset();
 
@@ -300,6 +310,13 @@
       WTPData.JOB_DESCRIPTIONS.map(a =>
         `<option value="${escHtml(a)}">${escHtml(a)}</option>`
       ).join('');
+
+    const isSwitching = mode === 'switch';
+    document.getElementById('clockin-title').textContent = isSwitching ? 'Switch Job' : 'Clock In';
+    const submitBtn = document.getElementById('clockin-submit');
+    submitBtn.innerHTML = isSwitching
+      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg> Switch Job`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Start Clock`;
 
     clockinModal.classList.remove('hidden');
     ciJob.focus();
@@ -323,23 +340,46 @@
 
     const btn = document.getElementById('clockin-submit');
     btn.disabled = true;
-    btn.textContent = 'Starting…';
 
-    try {
-      const shift = await WTPData.clockIn(
-        userId,
-        ciJob.value,
-        ciActivity.value
-      );
-      activeShift = shift;
-      closeClockinModal();
-      renderClockedIn(shift);
-      showToast('Clocked in — timer started!');
-    } catch (err) {
-      clockinError.textContent = err.message || 'Failed to clock in. Please try again.';
-      clockinError.style.display = 'block';
-      btn.disabled = false;
-      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Start Clock`;
+    const isSwitching = clockinModalMode === 'switch';
+
+    if (isSwitching) {
+      btn.textContent = 'Switching…';
+      try {
+        const newShift = await WTPData.switchJob(
+          userId,
+          ciJob.value,
+          ciActivity.value,
+          activeShift?.payType || 'Regular'
+        );
+        activeShift = newShift;
+        closeClockinModal();
+        renderClockedIn(newShift);
+        showToast(`Switched to ${ciJob.value} — ${ciActivity.value}`);
+      } catch (err) {
+        clockinError.textContent = err.message || 'Failed to switch job. Please try again.';
+        clockinError.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg> Switch Job`;
+      }
+    } else {
+      btn.textContent = 'Starting…';
+      try {
+        const shift = await WTPData.clockIn(
+          userId,
+          ciJob.value,
+          ciActivity.value
+        );
+        activeShift = shift;
+        closeClockinModal();
+        renderClockedIn(shift);
+        showToast('Clocked in — timer started!');
+      } catch (err) {
+        clockinError.textContent = err.message || 'Failed to clock in. Please try again.';
+        clockinError.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Start Clock`;
+      }
     }
   });
 
